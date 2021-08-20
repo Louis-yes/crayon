@@ -1,30 +1,29 @@
-function Commander (state) {
-    this.getBlock = function(x,y,xx,yy){
-    return state.getBlock(x,y,xx,yy)
-    }
-    this.getEmojiAt = function(x,y){
-    return state.getEmojiAt(x,y)
-    }
-    this.getSelectionAsImage = function(x,y){} 
-    this.getSelectionAsString = function(x,y){}
-
-    this.add = function(character, x, y){
+export default function Commander(state) {
+    const subscribers = []
+    function getBlock(x,y,xx,yy){ return state.getBlock(x,y,xx,yy) }
+    function getEmojiAt(x,y){ return state.getEmojiAt(x,y) || { character : null }}
+    function getSelectionAsImage(x, y, w, h){} 
+    function getSelectionAsString(x, y, w, h){}
+    function add (character, x, y){
         state.add(character,x,y)
-        this.emit("emoji-added", state.emoji(character,x,y))
+        emit("emoji-added", state.emoji(character,x,y))
+    }
+    function remove(x,y){ 
+        const e = state.remove(x,y)
+        emit("emoji-removed", e)
+    }
+    function getDB(){ return state.db() }
+    function emit(ee, data){ subscribers[ee] ? subscribers[ee].forEach(cb => cb(data)) : "" }
+    function on (ee, cb){ 
+        if(!subscribers[ee]){ subscribers[ee] = [] }
+        subscribers[ee].push(cb) 
     }
 
-    this.remove = function(x,y){
-    state.remove(x,y)
-    }
-    this.getDB = () => {
-        return state.db
-    }
-    this.subscribers = []
-    this.emit = function(ee, data){ this.subscribers[ee].forEach(cb => cb(data)) }
-    this.on = function(ee, cb){ 
-        if(!this.subscribers[ee]){
-            this.subscribers[ee] = []
-        }
-        this.subscribers[ee].push(cb) 
+    return {
+        db: getDB,
+        on: on,
+        remove: remove,
+        add: add,
+        getEmoji: getEmojiAt
     }
 }

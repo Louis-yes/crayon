@@ -1,145 +1,109 @@
-function UI (element, commander) {
-    this.el = element || document.createElement("canvas")
-    // console.log(this.el.style)
-    this.el.style.position = "fixed"
-    this.el.style.top = "0"
-    this.el.style.left = "0"
-    this.el.style.touchAction = "none"
-    this.el.width = window.innerWidth
-    this.el.height = window.innerHeight
-    if( !element ) {
-        document.body.appendChild(this.el)   
-    }
-    this.zoom = 20
-
-    this.offset = {
+export default function UI(element, commander) {
+    const cursor = {x: 0, y: 0, w: 1, h: 1}
+    const modes = { insert: "insert", select: "select", navigate: "navigate" }
+    const offset = {
         x: 0,
         y: 0,
         old: {x:0, y: 0},
     }
-    this.pan = (x,y) => {
-        this.offset.x = this.offset.old.x + x 
-        this.offset.y = this.offset.old.y + y
-        this.draw()
-    }
-    this.setOldOffset = (x,y) => {
-        this.offset.old.x = x
-        this.offset.old.y = y
-    }
-    this.offsetModulo = () => { 
-            const m = {}
-            m.x = -Math.abs((this.offset.x * -1) % this.zoom )
-            m.y = -Math.abs((this.offset.y * -1) % this.zoom )
-            console.log(m)
-            return m
-    }
-
-    this.ctx = this.el.getContext("2d")
-    this.ctx.font = this.zoom + "px sans-serif";
-    this.cursor
-
-    this.modes = {
-        insert: "insert",
-        select: "select",
-        navigate: "navigate"
-    }
-    this.mode = this.modes.insert
-
-    this.currentEmoji = "🐖"
-
-    this.init = function(){
-        this.events()
-        this.draw()
-    }
-    this.draw = function(){
-        let c = this.ctx
-        c.clearRect(0, 0, this.el.width, this.el.height);
-        // draw bg
-        // draw mg
-        commander.getDB().forEach(e => {
-            // this.ctx.fillText(
-            //     e.character, 
-            //     (e.x) * this.zoom + this.offset.x, 
-            //     (e.y+.75) * this.zoom + this.offset.y
-            // )
-            c.strokeRect((e.x) * this.zoom + this.offset.x, (e.y) * this.zoom + this.offset.y, this.zoom, this.zoom)
-        })
-        // this.ctx.strokeRect(
-        //     Math.floor((this.mouse.x-(this.offset.x % this.zoom))/this.zoom) * this.zoom + (this.offset.x % this.zoom), 
-        //     Math.floor((this.mouse.y-(this.offset.y % this.zoom))/this.zoom) * this.zoom + (this.offset.y % this.zoom), 
-        //     this.zoom, this.zoom)
-        // draw fg
-    }
-    this.mouse = { 
+    const mouse = { 
         mouseDown: false,
         activeTouch: false,
         dragstart: { x: 0, y: 0 },
         x: 0,
         y: 0,
-    };
-
+    }
     const grid = {
-        x: (n) => Math.floor((n+this.offsetModulo().x)/this.zoom - Math.floor(this.offset.x/this.zoom)),
-        y: (n) => Math.floor((n+this.offsetModulo().y)/this.zoom - Math.floor(this.offset.y/this.zoom)),
+        x: (n) => Math.floor((n - offsetModulo(offset.x))/zoom - Math.floor(offset.x/zoom)),
+        y: (n) => Math.floor((n - offsetModulo(offset.y))/zoom - Math.floor(offset.y/zoom)),
     }
-    const addEmojiFromEvent = (e) => {
-        commander.add(
-            this.currentEmoji,
-            grid.x(e.offsetX),
-            grid.y(e.offsetY)
-        )
-        console.log(grid.x(e.offsetX))
+    let currentEmoji = "🖍" //default
+    let zoom = 20 // default
+    let ctx = {}
+    let mode = modes.insert // default
+    let debug = {}
+    let el = {}
+    
+    function init() {
+        debug = setupDebug()    
+        el = makeCanvas(element)
+        if( !element ) { document.body.appendChild(el) }
+        ctx = el.getContext("2d")
+        ctx.font = zoom + "px sans-serif"
+        events()
+        draw()    
     }
 
-    this.events = function(){
+    function draw() {
+        let c = ctx
+        c.clearRect(0, 0, el.width, el.height);
+        commander.db().forEach(e => {
+            ctx.fillText(
+                e.character, 
+                (e.x) * zoom + offset.x, 
+                (e.y+.75) * zoom + offset.y
+            )
+        })
+        // draw current mousepos
+        ctx.strokeRect(
+            grid.x(mouse.x) * zoom + offset.x, 
+            grid.y(mouse.y) * zoom + offset.y, 
+            zoom, zoom
+        )        
+        debug.innerText = offsetModulo(offset.y)
+    }
+
+    function events() {
         window.addEventListener("keydown", (e) => {
-            this.mode = this.modes.navigate
+            if (e.code === "Space") setMode(modes.navigate)
         })
-        window.addEventListener("keyup", (e) => { this.mode = this.modes.insert })
+        window.addEventListener("keyup", (e) => { mode = modes.insert })
+        el.addEventListener("mousedown", (e) => { 
+            mouse.mouseDown = true 
+            mouse.dragstart.x = e.offsetX
+            mouse.dragstart.y = e.offsetY
+        })
+        el.addEventListener("mouseup", (e) =>  { mouse.mouseDown = false })
+        el.addEventListener("mousemove", (e) => { 
+            mouse.x = e.offsetX
+            mouse.y = e.offsetY
+            draw()
+        })
 
-        this.el.addEventListener("mousedown", (e) => { 
-            this.mouse.mouseDown = true 
-            this.mouse.dragstart.x = e.offsetX
-            this.mouse.dragstart.y = e.offsetY
-        })
-        this.el.addEventListener("mouseup", (e) =>  { this.mouse.mouseDown = false })
-        this.el.addEventListener("mousemove", (e) => { 
-            this.mouse.x = e.offsetX
-            this.mouse.y = e.offsetY
-            this.draw()
-        })
-
-        this.el.addEventListener("touchstart", (e) =>  { this.mouse.activeTouch = true })
-        this.el.addEventListener("touchend", (e) =>  { this.mouse.activeTouch = false })
-        this.el.addEventListener("mousedown", (e) => {
-            switch (this.mode){
-                case this.modes.insert: 
+        el.addEventListener("touchstart", (e) =>  { mouse.activeTouch = true })
+        el.addEventListener("touchend", (e) =>  { mouse.activeTouch = false })
+        el.addEventListener("mousedown", (e) => {
+            switch (mode){
+                case modes.insert:
+                    if(commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)).character == currentEmoji){
+                        removeEmojiFromEvent(e)
+                        return
+                    }
                     addEmojiFromEvent(e)
                     break;
-                case this.modes.navigate:
-                    this.setOldOffset(this.offset.x, this.offset.y)
-                    // console.log("honk")
+                case modes.navigate:
+                    setOldOffset(offset.x, offset.y)
                 default: ;
             }
         })
-        this.el.addEventListener("mousemove", (e) => {
-            switch (this.mode){
-                case this.modes.insert: 
-                    if ( this.mouse.mouseDown ) { addEmojiFromEvent(e) }
+        el.addEventListener("mousemove", (e) => {
+            switch (mode){
+                case modes.insert: 
+                    if ( mouse.mouseDown ) { addEmojiFromEvent(e) }
                     break;
-                case this.modes.navigate:
-                    if( this.mouse.mouseDown ) {
-                        this.pan(
-                            this.mouse.x - this.mouse.dragstart.x, 
-                            this.mouse.y - this.mouse.dragstart.y
+                case modes.navigate:
+                    if( mouse.mouseDown ) {
+                        pan(
+                            mouse.x - mouse.dragstart.x, 
+                            mouse.y - mouse.dragstart.y
                         )
                     }
                 default:
                 }
         })
-        this.el.addEventListener("touchmove", function(e){
-            switch (this.mode){
-                case this.modes.insert: 
+        el.addEventListener("touchmove", function(e){
+            switch (mode){
+                case modes.insert: 
                     if(window.cursor.activeTouch){
                         e.offsetX = e.touches[0].pageX - e.touches[0].target.offsetLeft,     
                         e.offsetY = e.touches[0].pageY - e.touches[0].target.offsetTop
@@ -150,10 +114,80 @@ function UI (element, commander) {
                 }
         })
         commander.on('emoji-added', (e) => {
-            this.draw()
+            draw()
         })
-        // mouse
-        // keys
+        commander.on('emoji-removed', (e) => {
+            // console.log("removed",e)
+            draw()
+        })
     }
-    this.init()
+
+    function addEmojiFromEvent(e) {
+        commander.add(
+            currentEmoji,
+            grid.x(e.offsetX),
+            grid.y(e.offsetY)
+        )
+    }
+   
+    function removeEmojiFromEvent(e) {
+        commander.remove(
+            grid.x(e.offsetX),
+            grid.y(e.offsetY)
+        )
+    }
+
+    function setZoom(z){ zoom = z }
+    function setCurrentEmoji(emo){ currentEmoji = emo }
+    function setMode(m) { mode = m}
+
+    function pan(x,y) {
+        offset.x = offset.old.x + x 
+        offset.y = offset.old.y + y
+        draw()
+    }
+    function setOldOffset(x,y) {
+        offset.old.x = x
+        offset.old.y = y
+    }
+    function offsetModulo(n) { 
+        let m = n % zoom        
+        return m > -1 ? m : zoom + m
+    }
+
+    function setupDebug(){
+        const debug = document.createElement("p")
+        debug.style = `
+            color: tomato;
+            font-size: 24px;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            text-align: right;
+            margin: 0
+        `
+        document.body.appendChild(debug)
+        return debug;
+    }
+
+    function makeCanvas(element){
+        const el = element || document.createElement("canvas")
+        // console.log(el.style)
+        el.style.position = "fixed"
+        el.style.top = "0"
+        el.style.left = "0"
+        el.style.touchAction = "none"
+        el.width = window.innerWidth
+        el.height = window.innerHeight
+        return el
+    }
+
+    init()
+    return {
+        modes: modes,
+        setMode: setMode,
+        pan: pan,
+        draw: draw,
+        setEmoji: setCurrentEmoji
+    }
 }
