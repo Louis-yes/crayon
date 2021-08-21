@@ -31,6 +31,7 @@ export default function State(){
         add: add,
         remove: remove,
         db: getDB,
+        replace: replace,
         getEmojiAt: getEmojiAt,
         getBlock: getBlock,
         emoji: emoji

@@ -106,6 +106,7 @@ export default function UI(element, commander) {
             draw()
         })
         window.addEventListener("keydown", (e) => {
+            if(!mouse.active) return
             if (e.code === "Space") setMode(modes.navigate)
             if (e.key === "Shift") { 
                 setMode(modes.select)
@@ -113,8 +114,12 @@ export default function UI(element, commander) {
                 setCursorSize(0,0)
                 setCursorPos(grid.x(mouse.x), grid.y(mouse.y)-1)
             }
-            if (e.keycode = 88) {
-                removeBlock()
+            if (e.key == "e") removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)
+            if (e.key == "f") fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)
+            if (e.key == "s") commander.save()
+            if (e.key == "l") {
+                commander.load()
+                draw()
             }
         })
         window.addEventListener("keyup", (e) => { 
@@ -147,7 +152,11 @@ export default function UI(element, commander) {
         el.addEventListener("mousedown", (e) => {
             switch (mode){
                 case modes.insert:
-                    cursor.active = false
+                    if(cursor.active) {
+                        cursor.active = false
+                        draw()
+                        return
+                    }
                     if(commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)).character == currentEmoji){
                         removeEmojiFromEvent(e)
                         return
@@ -197,6 +206,10 @@ export default function UI(element, commander) {
             // console.log("removed",e)
             draw()
         })
+        commander.on('block-removed', (e) => {
+            console.log(e)
+            draw()
+        })
     }
 
     function addEmojiFromEvent(e) {
@@ -216,6 +229,10 @@ export default function UI(element, commander) {
 
     function removeBlock(){
         commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h)
+    }
+
+    function fillBlock(){
+        commander.fill(currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h)
     }
 
     function setZoom(z){ zoom = z }
@@ -278,6 +295,7 @@ export default function UI(element, commander) {
     return {
         modes: modes,
         setMode: setMode,
+        getMode: () => mode,
         pan: pan,
         draw: draw,
         setEmoji: setCurrentEmoji,

@@ -18,11 +18,36 @@ export default function Commander(state) {
         if(!subscribers[ee]){ subscribers[ee] = [] }
         subscribers[ee].push(cb) 
     }
+    function replace(s) {
+        if(!s) return
+        state.replace(s)
+    }
 
     function removeBlock(x,y,w,h){
-        getDB().filter(e => {
-            return e.x > x && e.x < x + w && e.y > y & e.y < e.y + h
+        const block = getDB().filter(e => { 
+            return e.x > x-1 
+                && e.x < x + w + 1 
+                && e.y > y 
+                && e.y < y + h + 2 
         })
+        block.forEach((e) => { state.remove(e.x, e.y) })
+        emit("block-removed", {x,y,w,h, block: block})
+    }
+
+    function fillBlock(c,x,y,w,h){
+        for(let i = x; i < x+w+1; i++){
+            for(let u = y+1; u < y + h + 2; u++){
+                if(!getEmojiAt(i,u).character) add(c,i,u)
+            }
+        }
+        emit("block-filled", {c,x,y,w,h})
+    }
+
+    function save(){
+        window.localStorage.setItem("emojicrayondb", JSON.stringify(getDB()))
+    }
+    function load(){
+        replace(JSON.parse(window.localStorage.getItem("emojicrayondb")))
     }
 
     return {
@@ -30,7 +55,10 @@ export default function Commander(state) {
         on: on,
         remove: remove,
         removeBlock: removeBlock,
+        fill: fillBlock,
         add: add,
-        getEmoji: getEmojiAt
+        getEmoji: getEmojiAt,
+        save: save,
+        load: load
     }
 }
