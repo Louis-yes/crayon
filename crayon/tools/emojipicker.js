@@ -1,26 +1,28 @@
 export default function EmojiPicker(ui, emojis) {
     const panel = document.createElement("div")
-    panel.addEventListener("input", (e) => { ui.setEmoji(e.target.value) })
-    panel.style = `
-        background: white;
-        position: absolute; 
-        top: 30px; 
-        left: 30px; 
-        width: 200px; 
-        height: 400px; 
-        overflow: auto;
-        padding: 10px;
-        border: 1px solid #000;
-        `
+    const style = document.createElement("style")
+    panel.addEventListener("input", (e) => { 
+        if(/\w+/.test(e.target.value)) { e.target.value = e.target.value.substring(0,1) }
+        ui.setEmoji(e.target.value) 
+    })
+    panel.id = "emoji-picker"
     panel.innerHTML = `
-        ${emojis.categories.map(cc => {
-            return `
-                <div class=" bg-white">
-                    ${emojis.emoji.filter(e => {
-                        return e.category == emojis.categories.indexOf(cc)
-                    }).map(e => `<span class="emoji pointer w2 dib mb2">${e.emoji}</span>`).join('')}
-                </div>`  
-        })[0]}`
+        <input class="ep" type="text" maxlength="2" value="${ui.currentEmoji}">    
+    `
     document.body.appendChild(panel)
+    style.innerHTML = `
+        #emoji-picker {
+            padding: 10px;
+            position: fixed;
+            top: 50px;
+            left: 50px;
+        }
+        .ep {
+            width: 30px;
+            height: 30px;
+            text-align: center;
+        }         
+    `
+    document.head.appendChild(style)
     return panel
 }

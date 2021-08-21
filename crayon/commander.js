@@ -19,10 +19,17 @@ export default function Commander(state) {
         subscribers[ee].push(cb) 
     }
 
+    function removeBlock(x,y,w,h){
+        getDB().filter(e => {
+            return e.x > x && e.x < x + w && e.y > y & e.y < e.y + h
+        })
+    }
+
     return {
         db: getDB,
         on: on,
         remove: remove,
+        removeBlock: removeBlock,
         add: add,
         getEmoji: getEmojiAt
     }
