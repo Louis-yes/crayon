@@ -4,6 +4,7 @@ export default function EmojiPicker(ui, emojis) {
     panel.addEventListener("input", (e) => { 
         if(/\w+/.test(e.target.value)) { e.target.value = e.target.value.substring(0,1) }
         ui.setEmoji(e.target.value) 
+        e.target.blur()
     })
     panel.id = "emoji-picker"
     panel.innerHTML = `

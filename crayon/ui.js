@@ -1,6 +1,9 @@
+import Keyboardhelper from "./tools/keyboardHelper.js"
+
 export default function UI(element, commander) {
     const cursor = {x: 0, y: 0, w: 1, h: 1, active: false}
     const modes = { insert: "insert", select: "select", navigate: "navigate" }
+    const kh = Keyboardhelper(window)
     const offset = {
         x: 0,
         y: 0,
@@ -18,38 +21,51 @@ export default function UI(element, commander) {
         x: (n) => Math.floor((n - offsetModulo(offset.x))/zoom - Math.floor(offset.x/zoom)),
         y: (n) => Math.floor((n - offsetModulo(offset.y))/zoom - Math.floor(offset.y/zoom))+1,
     }
+    
     let currentEmoji = "🖍" //default
     let zoom = 20 // default
     let ctx = {}
     let mode = modes.insert // default
     let debug = {}
     let el = {}
+    let emojiBuffer = {}
+    let ebx = ""
     let march = 0;
     function init() {
         debug = setupDebug()    
         el = makeCanvas(element)
         if( !element ) { document.body.appendChild(el) }
         ctx = el.getContext("2d")
-        ctx.font = zoom + "px sans-serif"
         ctx.setLineDash([2,6])
         mouse.x = el.width/2
         mouse.y = el.height/2
+        emojiBuffer = document.createElement('canvas');
+        emojiBuffer.width = el.width;
+        emojiBuffer.height = el.height;
+        ebx = emojiBuffer.getContext("2d")
+        ebx.font = ctx.font = zoom + "px sans-serif"
         events()
-        draw()    
+        draw()
+    }
+
+    function drawEmojis(){
+        ebx.clearRect(0, 0, el.width, el.height)
+        commander.db().forEach(e => {
+            ebx.fillText(
+                e.character, 
+                (e.x) * zoom + offset.x, 
+                (e.y) * zoom + offset.y
+            )
+        })
+        draw()
     }
 
     function draw() {
         march += 0.8
         let c = ctx
         c.lineDashOffset = march
-        c.clearRect(0, 0, el.width, el.height);
-        commander.db().forEach(e => {
-            ctx.fillText(
-                e.character, 
-                (e.x) * zoom + offset.x, 
-                (e.y) * zoom + offset.y
-            )
-        })
+        c.clearRect(0, 0, el.width, el.height)
+        c.drawImage(emojiBuffer, 0, 0);
         // draw current mousepos
         if(mouse.active & mode == modes.insert){
             ctx.strokeRect(
@@ -74,20 +90,8 @@ export default function UI(element, commander) {
     }
 
     function setCursorSizeFromEvent(e){
-        if(mouse.x < cursor.x) {
-            let w = grid.x(mouse.x) - cursor.x
-            cursor.x = grid.x(mouse.x)
-            cursor.w = w
-        } else {
-            cursor.w = grid.x(mouse.x) - cursor.x
-        }
-        if(mouse.y < cursor.y) {
-            let h = grid.y(mouse.y) - cursor.y
-            cursor.y = grid.y(mouse.y)
-            cursor.h = h
-        } else {
-            cursor.h = grid.y(mouse.y) - cursor.y - 1
-        }
+        cursor.w = grid.x(mouse.x) - cursor.x
+        cursor.h = grid.y(mouse.y) - cursor.y - 1
     }
 
     function setCursorSize(x,y){
@@ -100,48 +104,53 @@ export default function UI(element, commander) {
         cursor.y = y
     }
 
+    function toggleCursorActive(b){
+        if(!b) setCursorSize(0, 0)
+        cursor.active = b
+    }
+
+    function setMouseActive(b){ mouse.active = b }
+
     function events() {
+        kh.set("Edit", "Select", "Shift", (e) => { 
+            console.log("eeee")
+            setMode(modes.select)
+            toggleCursorActive(true)
+            setCursorSize(0,0)
+            setCursorPos(grid.x(mouse.x), grid.y(mouse.y)-1)
+        }, (e) => { setMode(modes.insert) } )
+
+        kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
+        kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
+        kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
+        kh.set("Edit", "Fill", "CmdOrCtrl+S", () => { if(mouse.active) commander.save()})
+        kh.set("Edit", "Fill", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
+
+        commander.on('emoji-added', (e) => drawEmojis())
+        commander.on('emoji-removed', (e) => drawEmojis())
+        commander.on('load', () => drawEmojis())
+        commander.on('block-removed', (e) => drawEmojis())
+        commander.on('block-filled', (e) => drawEmojis())
+
         window.addEventListener("mouseover", (e) => {
             mouse.active = e.target == el
             draw()
         })
-        window.addEventListener("keydown", (e) => {
-            if(!mouse.active) return
-            if (e.code === "Space") setMode(modes.navigate)
-            if (e.key === "Shift") { 
-                setMode(modes.select)
-                cursor.active = true
-                setCursorSize(0,0)
-                setCursorPos(grid.x(mouse.x), grid.y(mouse.y)-1)
-            }
-            if (e.key == "e") removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)
-            if (e.key == "f") fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)
-            if (e.key == "s") commander.save()
-            if (e.key == "l") {
-                commander.load()
-                draw()
-            }
-        })
-        window.addEventListener("keyup", (e) => { 
-            if (e.code === "Space") setMode(modes.insert)
-            if (e.key === "Shift") {
-                setMode(modes.insert)
-                // draw()
-            }
-        })
+
         el.addEventListener("mousedown", (e) => { 
             mouse.mouseDown = true 
             mouse.dragstart.x = e.offsetX
             mouse.dragstart.y = e.offsetY
         })
         el.addEventListener("mouseenter",(e) => {
-            mouse.active = true
+            setMouseActive(true)
         })
         el.addEventListener("mouseleave", (e) => {
-            mouse.active = false
+            setMouseActive(false)        
         })
         el.addEventListener("mouseup", (e) =>  { mouse.mouseDown = false })
         el.addEventListener("mousemove", (e) => { 
+            setMouseActive(true)
             mouse.x = e.offsetX
             mouse.y = e.offsetY
             draw()
@@ -153,7 +162,7 @@ export default function UI(element, commander) {
             switch (mode){
                 case modes.insert:
                     if(cursor.active) {
-                        cursor.active = false
+                        toggleCursorActive(false)
                         draw()
                         return
                     }
@@ -169,7 +178,7 @@ export default function UI(element, commander) {
             }
         })
         el.addEventListener("mousemove", (e) => {
-            mouse.active = true
+            setMouseActive(true)
             switch (mode){
                 case modes.insert: 
                     if ( mouse.mouseDown ) { addEmojiFromEvent(e) }
@@ -198,17 +207,6 @@ export default function UI(element, commander) {
                     break;
                 default:
                 }
-        })
-        commander.on('emoji-added', (e) => {
-            draw()
-        })
-        commander.on('emoji-removed', (e) => {
-            // console.log("removed",e)
-            draw()
-        })
-        commander.on('block-removed', (e) => {
-            console.log(e)
-            draw()
         })
     }
 
@@ -239,6 +237,12 @@ export default function UI(element, commander) {
     function setCurrentEmoji(emo){ currentEmoji = emo }
     function getCurrentEmoji(){ return currentEmoji }
 
+    function xy(obj, nn){
+        obj.x = nn.x
+        obj.y = nn.y
+        return obj
+    }
+
     function setElCursor(m){
         let c = "none"
         if(m == modes.navigate){ c = "grab" }
@@ -251,14 +255,10 @@ export default function UI(element, commander) {
     }
 
     function pan(x,y) {
-        offset.x = offset.old.x + x 
-        offset.y = offset.old.y + y
-        draw()
+        xy(offset, {x: offset.old.x + x, y: offset.old.y + y})
+        drawEmojis()
     }
-    function setOldOffset(x,y) {
-        offset.old.x = x
-        offset.old.y = y
-    }
+    function setOldOffset(x,y) { xy(offset.old, {x, y}) }
     function offsetModulo(n) { 
         let m = n % zoom        
         return m > -1 ? m : zoom + m
@@ -281,7 +281,7 @@ export default function UI(element, commander) {
 
     function makeCanvas(element){
         const el = element || document.createElement("canvas")
-        // console.log(el.style)
+        // // console.log(el.style)
         el.style.position = "fixed"
         el.style.top = "0"
         el.style.left = "0"
@@ -299,6 +299,8 @@ export default function UI(element, commander) {
         pan: pan,
         draw: draw,
         setEmoji: setCurrentEmoji,
-        currentEmoji: getCurrentEmoji()
+        currentEmoji: getCurrentEmoji(),
+        el: el,
+        kh: kh
     }
 }

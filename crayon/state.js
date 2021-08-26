@@ -1,9 +1,17 @@
 export default function State(){
     let db = []
     function add(character, x, y){
-        const e = emoji(character, x,y)
-        remove(x,y)
-        db.push(e)
+        if(!character) { remove(x,y) } 
+        else {
+            const e = emoji(character, x,y)
+            let cc = getEmojiAt(x,y)
+            if(cc) { cc.character = character }
+            else { db.push(e) }    
+        }
+    }
+    function addMulti(aa){
+        let ndb = aa.filter(e => { if(!getEmojiAt(e.x,e.y)) return e })
+        replace(db.concat(ndb))
     }
     function remove(x,y){ 
         const e = getEmojiAt(x,y)
@@ -29,6 +37,7 @@ export default function State(){
 
     return {
         add: add,
+        addMulti: addMulti,
         remove: remove,
         db: getDB,
         replace: replace,

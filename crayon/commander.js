@@ -24,22 +24,42 @@ export default function Commander(state) {
     }
 
     function removeBlock(x,y,w,h){
+        if(w < 0) { 
+            x = x+w + 1 
+            w = -w - 2
+        }
+        if(h < 0) { 
+            y = y+h + 1
+            h = -h -2
+        }
         const block = getDB().filter(e => { 
-            return e.x > x-1 
-                && e.x < x + w + 1 
-                && e.y > y 
-                && e.y < y + h + 2 
+            return e.x < x 
+                || e.x > x + w
+                || e.y < y + 1 
+                || e.y > y + h + 1 
         })
-        block.forEach((e) => { state.remove(e.x, e.y) })
+        state.replace(block)
         emit("block-removed", {x,y,w,h, block: block})
     }
 
     function fillBlock(c,x,y,w,h){
+        if(!c) return
+        if(w < 0) { 
+            x = x+w + 1 
+            w = -w - 2
+        }
+        if(h < 0) { 
+            y = y+h + 1
+            h = -h -2
+        }
+        let a = []
+        // console.time("fill loop")
         for(let i = x; i < x+w+1; i++){
             for(let u = y+1; u < y + h + 2; u++){
-                if(!getEmojiAt(i,u).character) add(c,i,u)
+                a.push({character:c,x:i,y:u})
             }
         }
+        state.addMulti(a)
         emit("block-filled", {c,x,y,w,h})
     }
 
@@ -48,6 +68,7 @@ export default function Commander(state) {
     }
     function load(){
         replace(JSON.parse(window.localStorage.getItem("emojicrayondb")))
+        emit("load")
     }
 
     return {
