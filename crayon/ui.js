@@ -1,4 +1,4 @@
-import Keyboardhelper from "./tools/keyboardHelper.js"
+import Keyboardhelper from "./tools/keyboardhelper.js"
 
 export default function UI(element, commander) {
     const cursor = {x: 0, y: 0, w: 1, h: 1, active: false}
@@ -111,10 +111,6 @@ export default function UI(element, commander) {
         cursor.active = b
     }
 
-    function setZoom(n) {
-        console.log('zoom')
-    }
-
     function setMouseActive(b){ mouse.active = b }
 
     function events() {
@@ -130,8 +126,8 @@ export default function UI(element, commander) {
         kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Fill", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
         kh.set("Edit", "Fill", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
-        kh.set("Navigate", "zoom--", "Q", (e) => { if(mouse.active)  setZoom(1)})
-        kh.set("Navigate", "zoom++", "W", (e) => { if(mouse.active)  setZoom(-1)})
+        kh.set("Navigate", "zoom--", "W", (e) => { if(mouse.active)  setZoom(1)})
+        kh.set("Navigate", "zoom++", "Q", (e) => { if(mouse.active)  setZoom(-1)})
 
 
         commander.on('emoji-added', (e) => drawEmojis())
@@ -241,7 +237,12 @@ export default function UI(element, commander) {
         commander.fill(currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h)
     }
 
-    function setZoom(z){ zoom = z }
+    function setZoom(z){ 
+        zoom += z
+        ebx.font = ctx.font = zoom + "px sans-serif"
+        drawEmojis()
+        draw()
+    }
     function setCurrentEmoji(emo){ currentEmoji = emo }
     function getCurrentEmoji(){ return currentEmoji }
 
