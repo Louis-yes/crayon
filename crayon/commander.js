@@ -67,7 +67,9 @@ export default function Commander(state) {
         window.localStorage.setItem("emojicrayondb", JSON.stringify(getDB()))
     }
     function load(){
-        replace(JSON.parse(window.localStorage.getItem("emojicrayondb")))
+        const loadFile = window.localStorage.getItem("emojicrayondb")
+        if(!loadFile) return
+        replace(JSON.parse(loadFile))
         emit("load")
     }
 

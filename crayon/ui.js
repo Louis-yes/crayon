@@ -24,6 +24,7 @@ export default function UI(element, commander) {
     
     let currentEmoji = "🖍" //default
     let zoom = 20 // default
+
     let ctx = {}
     let mode = modes.insert // default
     let debug = {}
@@ -46,6 +47,7 @@ export default function UI(element, commander) {
         ebx.font = ctx.font = zoom + "px sans-serif"
         events()
         draw()
+        commander.load()
     }
 
     function drawEmojis(){
@@ -109,11 +111,14 @@ export default function UI(element, commander) {
         cursor.active = b
     }
 
+    function setZoom(n) {
+        console.log('zoom')
+    }
+
     function setMouseActive(b){ mouse.active = b }
 
     function events() {
-        kh.set("Edit", "Select", "Shift", (e) => { 
-            console.log("eeee")
+        kh.set("Edit", "Select", "Shift", (e) => {
             setMode(modes.select)
             toggleCursorActive(true)
             setCursorSize(0,0)
@@ -123,8 +128,11 @@ export default function UI(element, commander) {
         kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
         kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Edit", "Fill", "CmdOrCtrl+S", () => { if(mouse.active) commander.save()})
+        kh.set("Edit", "Fill", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
         kh.set("Edit", "Fill", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
+        kh.set("Navigate", "zoom--", "Q", (e) => { if(mouse.active)  setZoom(1)})
+        kh.set("Navigate", "zoom++", "W", (e) => { if(mouse.active)  setZoom(-1)})
+
 
         commander.on('emoji-added', (e) => drawEmojis())
         commander.on('emoji-removed', (e) => drawEmojis())
@@ -301,6 +309,8 @@ export default function UI(element, commander) {
         setEmoji: setCurrentEmoji,
         currentEmoji: getCurrentEmoji(),
         el: el,
-        kh: kh
+        kh: kh,
+        zoom: zoom,
+        setZoom: setZoom
     }
 }

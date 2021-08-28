@@ -37,8 +37,7 @@ export default function Keyboardhelper(cl){
     function onKeyDown (e) {
         const target = get(convert(e))
         if (!target || !target.downfn) { return false }
-        target.downfn()
-        e.preventDefault()
+        target.downfn(e)
     }
     
     function onKeyUp (e) {

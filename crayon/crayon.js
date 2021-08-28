@@ -6,9 +6,11 @@
         [x] like acels maybe?? read acels - used acels
         [ ] that pushes instructions to ui object
     - [x]  colophon
-    - [ ]  Tidy up ui file
+    - [x]  design palettes → recently used will be a palette
+    - [ ]  implement zoom
     - [ ]  Implement copy as text
-    - [ ]  design palettes → recently used will be a palette
+    - [ ]  Save and load ui state on load (currentEmoji, zoom)
+    - [ ]  Tidy up ui file
 
     ### nice to haves
 
@@ -20,13 +22,14 @@
 import State from "./state.js"
 import Commander from "./commander.js"
 import UI from "./ui.js"
-import emojis from "./emojis.js"
-import EmojiPicker from "./tools/emojipicker.js"
+import EmojiPalette from "./tools/emojipalette.js"
+
 
 const state = new State()
 const commander = new Commander(state)
 const ui = new UI(document.querySelector('canvas'), commander)
-const emopic = new EmojiPicker(ui, emojis)
+// const emopic = new EmojiPicker(ui, emojis) 
+const emopal = new EmojiPalette(ui)
 
 // debugging
 window.debug = {}
