@@ -9,6 +9,7 @@ export default function UI(element, commander) {
         y: 0,
         old: {x:0, y: 0},
     }
+
     const mouse = { 
         active: true,
         mouseDown: false,
@@ -17,13 +18,14 @@ export default function UI(element, commander) {
         x: 0,
         y: 0,
     }
+
     const grid = {
         x: (n) => Math.floor((n - offsetModulo(offset.x))/zoom - Math.floor(offset.x/zoom)),
         y: (n) => Math.floor((n - offsetModulo(offset.y))/zoom - Math.floor(offset.y/zoom))+1,
     }
     
     let currentEmoji = "🖍" //default
-    let zoom = 20 // default
+    let zoom = 30 // default
 
     let ctx = {}
     let mode = modes.insert // default
@@ -32,6 +34,7 @@ export default function UI(element, commander) {
     let emojiBuffer = {}
     let ebx = ""
     let march = 0;
+
     function init() {
         debug = setupDebug()    
         el = makeCanvas(element)
@@ -68,6 +71,7 @@ export default function UI(element, commander) {
         c.lineDashOffset = march
         c.clearRect(0, 0, el.width, el.height)
         c.drawImage(emojiBuffer, 0, 0);
+    
         // draw current mousepos
         if(mouse.active & mode == modes.insert){
             ctx.strokeRect(
@@ -91,28 +95,6 @@ export default function UI(element, commander) {
         }
     }
 
-    function setCursorSizeFromEvent(e){
-        cursor.w = grid.x(mouse.x) - cursor.x
-        cursor.h = grid.y(mouse.y) - cursor.y - 1
-    }
-
-    function setCursorSize(x,y){
-        cursor.w = x
-        cursor.h = y
-    }
-
-    function setCursorPos(x,y) {
-        cursor.x = x
-        cursor.y = y
-    }
-
-    function toggleCursorActive(b){
-        if(!b) setCursorSize(0, 0)
-        cursor.active = b
-    }
-
-    function setMouseActive(b){ mouse.active = b }
-
     function events() {
         kh.set("Edit", "Select", "Shift", (e) => {
             setMode(modes.select)
@@ -121,14 +103,35 @@ export default function UI(element, commander) {
             setCursorPos(grid.x(mouse.x), grid.y(mouse.y)-1)
         }, (e) => { setMode(modes.insert) } )
 
-        kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
         kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Edit", "Fill", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
-        kh.set("Edit", "Fill", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
-        kh.set("Navigate", "zoom--", "W", (e) => { if(mouse.active)  setZoom(1)})
-        kh.set("Navigate", "zoom++", "Q", (e) => { if(mouse.active)  setZoom(-1)})
-
+        kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { 
+            if(mouse.active){
+                e.preventDefault()
+                navigator.permissions.query({name: "clipboard-write"}).then(result => {
+                    if (result.state == "granted" || result.state == "prompt") {
+                      /* write to the clipboard now */
+                      const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
+                      navigator.clipboard.writeText(string).then(function() {
+                        console.log("copied selection")
+                      }, function() {
+                        console.warn("couldn't copy selection") 
+                        });
+                    }
+                });
+            }
+        })
+        kh.set("Edit", "Paste", "CmdOrCtrl+V", (e) => {
+            if(mouse.active) {
+                e.preventDefault()
+                navigator.clipboard.readText().then(clipText => {
+                    commander.insertBlockAsString(grid.x(mouse.x), grid.y(mouse.y), clipText)
+                })
+            }
+        })
+        kh.set("File", "Save", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
+        kh.set("File", "Load", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
+        kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
 
         commander.on('emoji-added', (e) => drawEmojis())
         commander.on('emoji-removed', (e) => drawEmojis())
@@ -140,6 +143,8 @@ export default function UI(element, commander) {
             mouse.active = e.target == el
             draw()
         })
+
+        el.onwheel = setZoom
 
         el.addEventListener("mousedown", (e) => { 
             mouse.mouseDown = true 
@@ -170,7 +175,8 @@ export default function UI(element, commander) {
                         draw()
                         return
                     }
-                    if(commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)).character == currentEmoji){
+                    let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY))
+                    if(gec && gec.character == currentEmoji){
                         removeEmojiFromEvent(e)
                         return
                     }
@@ -214,6 +220,28 @@ export default function UI(element, commander) {
         })
     }
 
+    function setCursorSizeFromEvent(e){
+        cursor.w = grid.x(mouse.x) - cursor.x
+        cursor.h = grid.y(mouse.y) - cursor.y - 1
+    }
+
+    function setCursorSize(x,y){
+        cursor.w = x
+        cursor.h = y
+    }
+
+    function setCursorPos(x,y) {
+        cursor.x = x
+        cursor.y = y
+    }
+
+    function toggleCursorActive(b){
+        if(!b) setCursorSize(0, 0)
+        cursor.active = b
+    }
+
+    function setMouseActive(b){ mouse.active = b }
+
     function addEmojiFromEvent(e) {
         commander.add(
             currentEmoji,
@@ -229,28 +257,25 @@ export default function UI(element, commander) {
         )
     }
 
-    function removeBlock(){
-        commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h)
-    }
+    function removeBlock(){ commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h) }
 
-    function fillBlock(){
-        commander.fill(currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h)
-    }
+    function fillBlock(){ commander.fill(currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h) }
 
-    function setZoom(z){ 
-        zoom += z
-        ebx.font = ctx.font = zoom + "px sans-serif"
+    function setZoom(e){ 
+        e.preventDefault()
+        zoom += e.deltaY * -0.01
+        setFont(zoom)
+        offset.x = (mouse.x + offset.x) * (e.deltaY * -0.01 - 1),
+        offset.y = (mouse.y + offset.y) * (e.deltaY * -0.01 - 1);
         drawEmojis()
-        draw()
     }
+
+    function setFont(z) {
+        ebx.font = ctx.font = z + "px sans-serif"
+    }
+
     function setCurrentEmoji(emo){ currentEmoji = emo }
     function getCurrentEmoji(){ return currentEmoji }
-
-    function xy(obj, nn){
-        obj.x = nn.x
-        obj.y = nn.y
-        return obj
-    }
 
     function setElCursor(m){
         let c = "none"
@@ -258,6 +283,7 @@ export default function UI(element, commander) {
         if(m == modes.select){ c = "crosshair" }
         el.style.cursor = c
     }
+
     function setMode(m) { 
         setElCursor(m)
         mode = m
@@ -267,10 +293,18 @@ export default function UI(element, commander) {
         xy(offset, {x: offset.old.x + x, y: offset.old.y + y})
         drawEmojis()
     }
+
     function setOldOffset(x,y) { xy(offset.old, {x, y}) }
+
     function offsetModulo(n) { 
         let m = n % zoom        
         return m > -1 ? m : zoom + m
+    }
+
+    function xy(obj, nn){
+        obj.x = nn.x
+        obj.y = nn.y
+        return obj
     }
 
     function setupDebug(){
@@ -290,7 +324,6 @@ export default function UI(element, commander) {
 
     function makeCanvas(element){
         const el = element || document.createElement("canvas")
-        // // console.log(el.style)
         el.style.position = "fixed"
         el.style.top = "0"
         el.style.left = "0"
@@ -301,6 +334,7 @@ export default function UI(element, commander) {
     }
 
     init()
+
     return {
         modes: modes,
         setMode: setMode,
@@ -312,6 +346,8 @@ export default function UI(element, commander) {
         el: el,
         kh: kh,
         zoom: zoom,
-        setZoom: setZoom
+        setZoom: setZoom,
+        offset: offset,
+        mouse: mouse
     }
 }
