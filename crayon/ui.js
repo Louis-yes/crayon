@@ -106,7 +106,7 @@ export default function UI(element, commander) {
         kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { 
             if(mouse.active){
-                copy()
+                copy(e)
             }
         })
         kh.set("Edit", "Paste", "CmdOrCtrl+V", (e) => {
@@ -212,7 +212,7 @@ export default function UI(element, commander) {
         state = s
     }
 
-    function copy(){
+    function copy(e){
         e.preventDefault()
         if(navigator.permissions){
             navigator.permissions.query({name: "clipboard-write"}).then(result => {
