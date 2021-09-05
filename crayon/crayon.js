@@ -1,17 +1,17 @@
 /*
     TODO:
     [ ] Save and load ui state on load (currentEmoji, zoom)
-    [ ] Zero shift designs
-    [ ] Tidy up ui file
     [ ] measurements / cursor position
     [ ] selection size readout
+    [ ] Save files
+    [ ] Zero shift designs
     [ ] scroll to zoom
     [ ] import export palettes
     [ ] undo fucntionality  
     [ ] measurements / cursor position
     [ ] selection size readout
     [ ] import export palettes
-    [ ] undo fucntionality  
+    [ ] undo fucntionality - commander
     [ ] line drawing
     [ ] hide all ui
     [ ] overlay

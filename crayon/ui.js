@@ -1,15 +1,9 @@
 import Keyboardhelper from "./tools/keyboardhelper.js"
 
 export default function UI(element, commander) {
-    const cursor = {x: 0, y: 0, w: 1, h: 1, active: false}
+    const cursor = {x: 0, y: 0, w: 1, h: 1, active: false, inverse: {x: false, y: false}}
     const modes = { insert: "insert", select: "select", navigate: "navigate" }
     const kh = Keyboardhelper(window)
-    const offset = {
-        x: 0,
-        y: 0,
-        old: {x:0, y: 0},
-    }
-
     const mouse = { 
         active: true,
         mouseDown: false,
@@ -18,14 +12,19 @@ export default function UI(element, commander) {
         x: 0,
         y: 0,
     }
-
     const grid = {
-        x: (n) => Math.floor((n - offsetModulo(offset.x))/zoom - Math.floor(offset.x/zoom)),
-        y: (n) => Math.floor((n - offsetModulo(offset.y))/zoom - Math.floor(offset.y/zoom))+1,
+        x: (n) => Math.floor((n - offsetModulo(state.offset.x))/ state.zoom - Math.floor(state.offset.x/ state.zoom)),
+        y: (n) => Math.floor((n - offsetModulo(state.offset.y))/ state.zoom - Math.floor(state.offset.y/ state.zoom)),
     }
     
-    let currentEmoji = "🖍" //default
-    let zoom = 30 // default
+    let state = {
+        zoom: 20,
+        offset: {
+            x: 0, y: 0,
+            old: { x:0, y: 0 },
+        },
+        currentEmoji: "🖍"
+    }
 
     let ctx = {}
     let mode = modes.insert // default
@@ -47,7 +46,7 @@ export default function UI(element, commander) {
         emojiBuffer.width = el.width;
         emojiBuffer.height = el.height;
         ebx = emojiBuffer.getContext("2d")
-        ebx.font = ctx.font = zoom + "px sans-serif"
+        ebx.font = ctx.font =  state.zoom + "px sans-serif"
         events()
         draw()
         commander.load()
@@ -58,8 +57,8 @@ export default function UI(element, commander) {
         commander.db().forEach(e => {
             ebx.fillText(
                 e.character, 
-                (e.x) * zoom + offset.x, 
-                (e.y) * zoom + offset.y
+                (e.x) *  state.zoom + state.offset.x, 
+                (e.y) *  state.zoom + state.offset.y
             )
         })
         draw()
@@ -75,22 +74,22 @@ export default function UI(element, commander) {
         // draw current mousepos
         if(mouse.active & mode == modes.insert){
             ctx.strokeRect(
-                grid.x(mouse.x) * zoom + offset.x, 
-                (grid.y(mouse.y)-1) * zoom + offset.y, 
-                zoom, zoom
+                grid.x(mouse.x) *  state.zoom + state.offset.x, 
+                grid.y(mouse.y) *  state.zoom + state.offset.y, 
+                 state.zoom,  state.zoom
             )
             ctx.fillText(
-                currentEmoji, 
-                grid.x(mouse.x) * zoom + offset.x, 
-                grid.y(mouse.y) * zoom + offset.y, 
+                state.currentEmoji, 
+                grid.x(mouse.x) *  state.zoom + state.offset.x, 
+                (grid.y(mouse.y)+1) *  state.zoom + state.offset.y, 
             )         
         }
 
         if(mode == modes.select || cursor.active){
             ctx.strokeRect(
-                cursor.x * zoom + offset.x, 
-                cursor.y * zoom + offset.y, 
-                zoom * cursor.w + zoom, zoom * cursor.h + zoom
+                cursor.x *  state.zoom + state.offset.x, 
+                cursor.y *  state.zoom + state.offset.y, 
+                 state.zoom * cursor.w +  state.zoom,  state.zoom * cursor.h +  state.zoom
             )
         }
     }
@@ -99,26 +98,15 @@ export default function UI(element, commander) {
         kh.set("Edit", "Select", "Shift", (e) => {
             setMode(modes.select)
             toggleCursorActive(true)
-            setCursorSize(0,0)
-            setCursorPos(grid.x(mouse.x), grid.y(mouse.y)-1)
+            setCursorSize(1,1)
+            setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
         }, (e) => { setMode(modes.insert) } )
 
         kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { 
             if(mouse.active){
-                e.preventDefault()
-                navigator.permissions.query({name: "clipboard-write"}).then(result => {
-                    if (result.state == "granted" || result.state == "prompt") {
-                      /* write to the clipboard now */
-                      const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
-                      navigator.clipboard.writeText(string).then(function() {
-                        console.log("copied selection")
-                      }, function() {
-                        console.warn("couldn't copy selection") 
-                        });
-                    }
-                });
+                copy()
             }
         })
         kh.set("Edit", "Paste", "CmdOrCtrl+V", (e) => {
@@ -175,15 +163,15 @@ export default function UI(element, commander) {
                         draw()
                         return
                     }
-                    let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY))
-                    if(gec && gec.character == currentEmoji){
+                    let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)+1)
+                    if(gec && gec.character == state.currentEmoji){
                         removeEmojiFromEvent(e)
                         return
                     }
                     addEmojiFromEvent(e)
                     break;
                 case modes.navigate:
-                    setOldOffset(offset.x, offset.y)
+                    setOldOffset(state.offset.x, state.offset.y)
                 default: ;
             }
         })
@@ -210,8 +198,8 @@ export default function UI(element, commander) {
             switch (mode){
                 case modes.insert: 
                     if(window.cursor.activeTouch){
-                        e.offsetX = e.touches[0].pageX - e.touches[0].target.offsetLeft,     
-                        e.offsetY = e.touches[0].pageY - e.touches[0].target.offsetTop
+                        e.offsetX = e.touches[0].pageX - e.touches[0].target.state.offsetLeft,     
+                        e.offsetY = e.touches[0].pageY - e.touches[0].target.state.offsetTop
                         addEmojiFromEvent(e)
                     }
                     break;
@@ -220,9 +208,57 @@ export default function UI(element, commander) {
         })
     }
 
+    function setState(s) {
+        state = s
+    }
+
+    function copy(){
+        e.preventDefault()
+        if(navigator.permissions){
+            navigator.permissions.query({name: "clipboard-write"}).then(result => {
+                if (result.state == "granted" || result.state == "prompt") {
+                    /* write to the clipboard now */
+                    const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
+                    navigator.clipboard.writeText(string).then(function() {
+                        console.log("copied selection")
+                    }, function() {
+                        console.warn("couldn't copy selection") 
+                    })
+                }
+            });    
+        }
+    }
+
     function setCursorSizeFromEvent(e){
-        cursor.w = grid.x(mouse.x) - cursor.x
-        cursor.h = grid.y(mouse.y) - cursor.y - 1
+        let x = grid.x(mouse.x)
+        let y = grid.y(mouse.y)
+        console.log(cursor.x,":", x)
+        if(x < cursor.x) {
+            x = x-1
+            if(!cursor.inverse.x) {
+                setCursorPos(cursor.x + 1, cursor.y) 
+                cursor.inverse.x = true
+            }
+        } else if (x > cursor.x-1) {
+            if(cursor.inverse.x) {
+                setCursorPos(cursor.x - 1, cursor.y) 
+            }
+            cursor.inverse.x = false
+        }
+        if(y < cursor.y) {
+            y = y -1
+            if(!cursor.inverse.y) {
+                setCursorPos(cursor.x, cursor.y + 1)
+                cursor.inverse.y = true    
+            }
+        } else if (y > cursor.y-1){
+            if(cursor.inverse.y) {
+                setCursorPos(cursor.x, cursor.y - 1) 
+            }
+            cursor.inverse.y = false
+        }
+        cursor.w = x - cursor.x
+        cursor.h = y - cursor.y
     }
 
     function setCursorSize(x,y){
@@ -244,29 +280,31 @@ export default function UI(element, commander) {
 
     function addEmojiFromEvent(e) {
         commander.add(
-            currentEmoji,
+            state.currentEmoji,
             grid.x(e.offsetX),
-            grid.y(e.offsetY)
+            grid.y(e.offsetY)+1
         )
     }
    
     function removeEmojiFromEvent(e) {
         commander.remove(
             grid.x(e.offsetX),
-            grid.y(e.offsetY)
+            grid.y(e.offsetY)+1
         )
     }
 
     function removeBlock(){ commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h) }
 
-    function fillBlock(){ commander.fill(currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h) }
+    function fillBlock(){ commander.fill(state.currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h) }
 
     function setZoom(e){ 
         e.preventDefault()
-        zoom += e.deltaY * -0.01
-        setFont(zoom)
-        offset.x = (mouse.x + offset.x) * (e.deltaY * -0.01 - 1),
-        offset.y = (mouse.y + offset.y) * (e.deltaY * -0.01 - 1);
+        state.zoom += e.deltaY * -0.01
+        // let dx = (mouse.x - state.offset.x) * ((e.deltaY * -0.01) - 1)
+        // let dy = (mouse.y - state.offset.y) * ((e.deltaY * -0.01) - 1)
+        // state.offset.x -= dx
+        // state.offset.y -= dy
+        setFont( state.zoom )
         drawEmojis()
     }
 
@@ -274,8 +312,8 @@ export default function UI(element, commander) {
         ebx.font = ctx.font = z + "px sans-serif"
     }
 
-    function setCurrentEmoji(emo){ currentEmoji = emo }
-    function getCurrentEmoji(){ return currentEmoji }
+    function setCurrentEmoji(emo){ state.currentEmoji = emo }
+    function getCurrentEmoji(){ return state.currentEmoji }
 
     function setElCursor(m){
         let c = "none"
@@ -290,15 +328,15 @@ export default function UI(element, commander) {
     }
 
     function pan(x,y) {
-        xy(offset, {x: offset.old.x + x, y: offset.old.y + y})
+        xy(state.offset, {x: state.offset.old.x + x, y: state.offset.old.y + y})
         drawEmojis()
     }
 
-    function setOldOffset(x,y) { xy(offset.old, {x, y}) }
+    function setOldOffset(x,y) { xy(state.offset.old, {x, y}) }
 
     function offsetModulo(n) { 
-        let m = n % zoom        
-        return m > -1 ? m : zoom + m
+        let m = n %  state.zoom        
+        return m > -1 ? m :  state.zoom + m
     }
 
     function xy(obj, nn){
@@ -342,12 +380,11 @@ export default function UI(element, commander) {
         pan: pan,
         draw: draw,
         setEmoji: setCurrentEmoji,
-        currentEmoji: getCurrentEmoji(),
         el: el,
         kh: kh,
-        zoom: zoom,
+        state: state,
         setZoom: setZoom,
-        offset: offset,
-        mouse: mouse
+        mouse: mouse,
+        cursor: cursor
     }
 }
