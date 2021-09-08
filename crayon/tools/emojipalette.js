@@ -2,7 +2,7 @@ import { createApp } from 'https://unpkg.com/petite-vue?module'
 
 export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,💒") {
     const template = `
-        <div :class="'emoji-palette ' + (isEdit ? 'edit' : '')">
+        <div :class="'emoji-palette crayon-ui ' + (isEdit ? 'edit' : '')">
             <div class="toolbar">
             <div class="logo">emoji.palette</div>
             <div class="modeToggle" @click="toggleMode">
@@ -25,7 +25,7 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
     const css = `
         .emoji-palette {
             position: fixed;
-            width: 264px;
+            width: 196px;
             left: 20px;
             top: 20px;
 
@@ -51,6 +51,7 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
         .emoji-palette .emojis {
             padding: 0;
             display:flex;
+            flex-wrap: wrap;
             margin: 10px 0 0;
         }
 
@@ -73,7 +74,7 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
         }
 
         .emoji-palette .input {
-            min-height: 29px;
+            min-height: 69px;
             width: 100%;
             background: #F6F6F6;
             border: none;
@@ -98,9 +99,6 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
         setEmoji(em) {
             console.log(em)
             ui.setEmoji(em)
-        },
-        increment() {
-            this.count++
         }
     }
 
