@@ -4,7 +4,8 @@ export default function UI(element, commander) {
     const cursor = {x: 0, y: 0, w: 1, h: 1, active: false, inverse: {x: false, y: false}}
     const modes = { insert: "insert", select: "select", navigate: "navigate" }
     const kh = Keyboardhelper(window)
-    const mouse = { 
+    const subscribers = []
+    const mouse = {
         active: true,
         mouseDown: false,
         activeTouch: false,
@@ -16,14 +17,22 @@ export default function UI(element, commander) {
         x: (n) => Math.floor((n - offsetModulo(state.offset.x))/ state.zoom - Math.floor(state.offset.x/ state.zoom)),
         y: (n) => Math.floor((n - offsetModulo(state.offset.y))/ state.zoom - Math.floor(state.offset.y/ state.zoom)),
     }
-    
+    const changeEvent = {
+        copy:   "copy"  ,
+        paste:  "paste" ,
+        pan:    "pan"   ,
+        mouse:  "mouse" ,
+        mode:   "mode"  ,
+        cursor: "cursor",
+        zoom: "zoom"
+    }
     let state = {
         zoom: 20,
         offset: {
             x: 0, y: 0,
             old: { x:0, y: 0 },
         },
-        currentEmoji: "🖍"
+        currentEmoji: "🖍",
     }
 
     let ctx = {}
@@ -34,6 +43,8 @@ export default function UI(element, commander) {
     let ebx = ""
     let march = 0;
 
+    init()
+
     function init() {
         debug = setupDebug()    
         el = makeCanvas(element)
@@ -42,11 +53,14 @@ export default function UI(element, commander) {
         ctx.setLineDash([2,6])
         mouse.x = el.width/2
         mouse.y = el.height/2
+        state.offset.x = el.width/2
+        state.offset.y = el.height/2
+        loadState()
         emojiBuffer = document.createElement('canvas');
         emojiBuffer.width = el.width;
         emojiBuffer.height = el.height;
         ebx = emojiBuffer.getContext("2d")
-        ebx.font = ctx.font =  state.zoom + "px sans-serif"
+        ebx.font = ctx.font = state.zoom + "px sans-serif"
         events()
         draw()
         commander.load()
@@ -55,10 +69,11 @@ export default function UI(element, commander) {
     function drawEmojis(){
         ebx.clearRect(0, 0, el.width, el.height)
         commander.db().forEach(e => {
+            let ep = currentTransform(e.x, e.y)
             ebx.fillText(
                 e.character, 
-                (e.x) *  state.zoom + state.offset.x, 
-                (e.y) *  state.zoom + state.offset.y
+                ep.x,
+                ep.y
             )
         })
         draw()
@@ -100,6 +115,7 @@ export default function UI(element, commander) {
             toggleCursorActive(true)
             setCursorSize(1,1)
             setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
+            emit(changeEvent.cursor)
         }, (e) => { setMode(modes.insert) } )
 
         kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
@@ -150,6 +166,7 @@ export default function UI(element, commander) {
             setMouseActive(true)
             mouse.x = e.offsetX
             mouse.y = e.offsetY
+            emit(changeEvent.mouse)
             draw()
         })
 
@@ -208,6 +225,23 @@ export default function UI(element, commander) {
         })
     }
 
+    function currentTransform(x,y){
+        return {
+            x: x * state.zoom + state.offset.x,
+            y: y * state.zoom + state.offset.y 
+        }
+    }
+
+    function saveState(s) {
+        window.localStorage.setItem("emojicrayon.ui.state", JSON.stringify(state))
+    }
+
+    function loadState() {
+        const loadFile = window.localStorage.getItem("emojicrayon.ui.state")
+        if(!loadFile) return
+        setState(JSON.parse(loadFile))
+    }
+
     function setState(s) {
         state = s
     }
@@ -220,7 +254,7 @@ export default function UI(element, commander) {
                     /* write to the clipboard now */
                     const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
                     navigator.clipboard.writeText(string).then(function() {
-                        console.log("copied selection")
+                        emit(changeEvent.copy, string)
                     }, function() {
                         console.warn("couldn't copy selection") 
                     })
@@ -257,8 +291,8 @@ export default function UI(element, commander) {
             }
             cursor.inverse.y = false
         }
-        cursor.w = x - cursor.x
-        cursor.h = y - cursor.y
+        setCursorSize(x - cursor.x, y - cursor.y)
+        emit(changeEvent.cursor)
     }
 
     function setCursorSize(x,y){
@@ -294,27 +328,19 @@ export default function UI(element, commander) {
     }
 
     function removeBlock(){ commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h) }
-
     function fillBlock(){ commander.fill(state.currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h) }
 
     function setZoom(e){ 
         e.preventDefault()
         state.zoom += e.deltaY * -0.01
-        // let dx = (mouse.x - state.offset.x) * ((e.deltaY * -0.01) - 1)
-        // let dy = (mouse.y - state.offset.y) * ((e.deltaY * -0.01) - 1)
-        // state.offset.x -= dx
-        // state.offset.y -= dy
         setFont( state.zoom )
         drawEmojis()
+        saveState()
+        emit(changeEvent.zoom)
     }
 
-    function setFont(z) {
-        ebx.font = ctx.font = z + "px sans-serif"
-    }
-
-    function setCurrentEmoji(emo){ state.currentEmoji = emo }
-    function getCurrentEmoji(){ return state.currentEmoji }
-
+    function setFont(z) { ebx.font = ctx.font = z + "px sans-serif" }
+    function setCurrentEmoji(emo){ state.currentEmoji = emo; saveState() }
     function setElCursor(m){
         let c = "none"
         if(m == modes.navigate){ c = "grab" }
@@ -324,12 +350,15 @@ export default function UI(element, commander) {
 
     function setMode(m) { 
         setElCursor(m)
+        emit(changeEvent.mode, m)
         mode = m
     }
 
     function pan(x,y) {
         xy(state.offset, {x: state.offset.old.x + x, y: state.offset.old.y + y})
         drawEmojis()
+        saveState()
+        emit(changeEvent.pan)
     }
 
     function setOldOffset(x,y) { xy(state.offset.old, {x, y}) }
@@ -371,20 +400,23 @@ export default function UI(element, commander) {
         return el
     }
 
-    init()
+    function emit(ee, data){ subscribers[ee] ? subscribers[ee].forEach(cb => cb(data)) : "" }
+    function on (ee, cb){ 
+        if(!subscribers[ee]){ subscribers[ee] = [] }
+        subscribers[ee].push(cb)
+    }
 
     return {
-        modes: modes,
-        setMode: setMode,
-        getMode: () => mode,
-        pan: pan,
-        draw: draw,
-        setEmoji: setCurrentEmoji,
         el: el,
         kh: kh,
         state: state,
-        setZoom: setZoom,
         mouse: mouse,
-        cursor: cursor
+        cursor: cursor,
+        mode: mode,
+        setMode: setMode,
+        pan: pan,
+        draw: draw,
+        setEmoji: setCurrentEmoji,
+        on: on,
     }
 }

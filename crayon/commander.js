@@ -2,7 +2,6 @@ export default function Commander(state) {
     const subscribers = []
     function getBlock(x,y,xx,yy){ return state.getBlock(x,y,xx,yy) }
     function getEmojiAt(x,y){ return state.getEmojiAt(x,y) || null }
-    function getSelectionAsImage(x, y, w, h){} 
     function getBlockAsString(x, y, w, h){
         let str = ""
         if(w < 0) { 
@@ -43,8 +42,7 @@ export default function Commander(state) {
             emit("block-filled")
         }
     }
-
-    function add (character, x, y){
+    function add(character, x, y){
         state.add(character,x,y)
         emit("emoji-added", state.emoji(character,x,y))
     }
@@ -62,7 +60,6 @@ export default function Commander(state) {
         if(!s) return
         state.replace(s)
     }
-
     function getBlock(x,y,w,h){
         const block = getDB().filter(e => { 
             return e.x < x 
@@ -98,7 +95,6 @@ export default function Commander(state) {
             h = -h -2
         }
         let a = []
-        // console.time("fill loop")
         for(let i = x; i < x+w+1; i++){
             for(let u = y+1; u < y + h + 2; u++){
                 a.push({character:c,x:i,y:u})
@@ -115,8 +111,6 @@ export default function Commander(state) {
         replace(JSON.parse(loadFile))
         emit("load")
     }
-
-
 
     return {
         db: getDB,
