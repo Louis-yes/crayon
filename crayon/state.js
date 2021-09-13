@@ -1,5 +1,6 @@
 export default function State(){
     let db = []
+
     function add(character, x, y){
         if(!character) { remove(x,y) } 
         else {
@@ -26,7 +27,9 @@ export default function State(){
         }
     }
     function getDB() { return db }
-    function replace (s) { db = s }
+    function replace (s) { 
+        db = s; 
+    }
     // reset
     function reset (){ db = []; }
     // getEmojiAt
@@ -60,7 +63,7 @@ export default function State(){
         getEmojiAt: getEmojiAt,
         getBlock: getBlock,
         emoji: emoji,
-        dimensions: getDimensions
+        dimensions: getDimensions,
     }
 }
 

@@ -47,23 +47,44 @@ export default function UI(element, commander) {
 
     function init() {
         debug = setupDebug()    
+       
         el = makeCanvas(element)
         if( !element ) { document.body.appendChild(el) }
+       
         ctx = el.getContext("2d")
         ctx.setLineDash([2,6])
+       
         mouse.x = el.width/2
         mouse.y = el.height/2
+       
         state.offset.x = el.width/2
         state.offset.y = el.height/2
+       
         loadState()
+       
         emojiBuffer = document.createElement('canvas');
         emojiBuffer.width = el.width;
         emojiBuffer.height = el.height;
+       
         ebx = emojiBuffer.getContext("2d")
         ebx.font = ctx.font = state.zoom + "px sans-serif"
+       
+        style()
         events()
         draw()
         commander.load()
+    }
+
+    function style(){
+        const css = `
+            .crayon-hide .crayon-ui {
+                display: none !important;
+            }
+        `
+        const style = document.createElement("style")
+        style.id = "crayon-ui-style"
+        style.innerHTML = css
+        document.head.appendChild(style)
     }
 
     function drawEmojis(){
@@ -110,21 +131,7 @@ export default function UI(element, commander) {
     }
 
     function events() {
-        kh.set("Edit", "Select", "Shift", (e) => {
-            setMode(modes.select)
-            toggleCursorActive(true)
-            setCursorSize(1,1)
-            setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
-            emit(changeEvent.cursor)
-        }, (e) => { setMode(modes.insert) } )
-
-        kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Edit", "Fill", "F", () => { if(mouse.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { 
-            if(mouse.active){
-                copy(e)
-            }
-        })
+        kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { if(mouse.active){ copy(e) } })
         kh.set("Edit", "Paste", "CmdOrCtrl+V", (e) => {
             if(mouse.active) {
                 e.preventDefault()
@@ -134,14 +141,31 @@ export default function UI(element, commander) {
             }
         })
         kh.set("File", "Save", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
+        kh.set("Edit", "Undo", "CmdOrCtrl+Z", () => { if(mouse.active) { commander.undo() }})
         kh.set("File", "Load", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
+        kh.set("Edit", "Select", "Shift", (e) => {
+            if(mouse.active) {
+                setMode(modes.select)
+                toggleCursorActive(true)
+                setCursorSize(1,1)
+                setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
+                emit(changeEvent.cursor)
+            }
+        }, (e) => { setMode(modes.insert) } )
+        kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active && cursor.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
         kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
+        kh.set("Edit", "Fill", "F", () => { if(mouse.active && cursor.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
+        kh.set("Edit", "Copy as HTML", "C", (e) => { if(mouse.active){ copyAsHTML(e) } })
+        kh.set("Navigate", "Hide Tools", "H", () => { if(mouse.active) { document.body.classList.toggle("crayon-hide")}})
 
         commander.on('emoji-added', (e) => drawEmojis())
         commander.on('emoji-removed', (e) => drawEmojis())
         commander.on('load', () => drawEmojis())
         commander.on('block-removed', (e) => drawEmojis())
         commander.on('block-filled', (e) => drawEmojis())
+        commander.on('undo', (e) => {
+            drawEmojis()
+        })
 
         window.addEventListener("mouseover", (e) => {
             mouse.active = e.target == el
@@ -248,13 +272,23 @@ export default function UI(element, commander) {
 
     function copy(e){
         e.preventDefault()
+        const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
+        writeToClipboard(string)
+    }
+
+    function copyAsHTML(e){
+        e.preventDefault()
+        const string = `<p>\n${commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h).split("\n").join("<br>\n")}</p>`
+        writeToClipboard(string)
+    }
+
+    function writeToClipboard(txt) {
         if(navigator.permissions){
             navigator.permissions.query({name: "clipboard-write"}).then(result => {
                 if (result.state == "granted" || result.state == "prompt") {
                     /* write to the clipboard now */
-                    const string = commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h)
-                    navigator.clipboard.writeText(string).then(function() {
-                        emit(changeEvent.copy, string)
+                    navigator.clipboard.writeText(txt).then(function() {
+                        emit(changeEvent.copy, txt)
                     }, function() {
                         console.warn("couldn't copy selection") 
                     })
@@ -266,7 +300,6 @@ export default function UI(element, commander) {
     function setCursorSizeFromEvent(e){
         let x = grid.x(mouse.x)
         let y = grid.y(mouse.y)
-        console.log(cursor.x,":", x)
         if(x < cursor.x) {
             x = x-1
             if(!cursor.inverse.x) {

@@ -1,5 +1,13 @@
 export default function Commander(state) {
     const subscribers = []
+    let history = []
+    let saveHistoryDebounce = debounce(()=>{ 
+        console.log(
+            "gg"
+        )
+        saveHistory()
+    }, 300, true)
+
     function getBlock(x,y,xx,yy){ return state.getBlock(x,y,xx,yy) }
     function getEmojiAt(x,y){ return state.getEmojiAt(x,y) || null }
     function getBlockAsString(x, y, w, h){
@@ -26,6 +34,7 @@ export default function Commander(state) {
         const block = []
         const lines = str.split("\n")
         if(lines.length){
+            saveHistoryDebounce()
             const h = lines.length
             // removeBlock(x,y,w,h)
             for(let i = 0; i < h ; i++) {
@@ -43,10 +52,12 @@ export default function Commander(state) {
         }
     }
     function add(character, x, y){
+        saveHistoryDebounce()
         state.add(character,x,y)
         emit("emoji-added", state.emoji(character,x,y))
     }
     function remove(x,y){ 
+        saveHistoryDebounce()
         const e = state.remove(x,y)
         emit("emoji-removed", e)
     }
@@ -71,6 +82,7 @@ export default function Commander(state) {
     }
 
     function removeBlock(x,y,w,h){
+        saveHistoryDebounce()
         if(w < 0) { 
             x = x+w + 1 
             w = -w - 2
@@ -86,6 +98,7 @@ export default function Commander(state) {
 
     function fillBlock(c,x,y,w,h) {
         if(!c) return
+        saveHistoryDebounce()
         if(w < 0) { 
             x = x+w + 1 
             w = -w - 2
@@ -103,6 +116,38 @@ export default function Commander(state) {
         state.addMulti(a)
         emit("block-filled", {c,x,y,w,h})
     }
+
+    function saveHistory () {
+        history.push([...getDB()])
+        if(history.length > 10){ history.splice(0,1) }
+    }
+
+    function undo() {
+        if(history.length) { 
+            replace(history[history.length - 1])
+            history.splice(history.length-1,1) 
+        }
+        emit("undo")
+    }
+
+    // Returns a function, that, as long as it continues to be invoked, will not
+    // be triggered. The function will be called after it stops being called for
+    // N milliseconds. If `immediate` is passed, trigger the function on the
+    // leading edge, instead of the trailing.
+    function debounce(func, wait, immediate) {
+        var timeout;
+        return function() {
+            var context = this, args = arguments;
+            var later = function() {
+                timeout = null;
+                if (!immediate) func.apply(context, args);
+            };
+            var callNow = immediate && !timeout;
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+            if (callNow) func.apply(context, args);
+        };
+    };
 
     function save() { window.localStorage.setItem("emojicrayondb", JSON.stringify(getDB())) }
     function load() {
@@ -123,6 +168,8 @@ export default function Commander(state) {
         fill: fillBlock,
         add: add,
         save: save,
-        load: load
+        load: load,
+        undo: undo,
+        history: history
     }
 }

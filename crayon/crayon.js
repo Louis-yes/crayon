@@ -3,13 +3,14 @@
     [x] measurements / cursor position
     [x] selection size readout
     [x] scroll to zoom
-    [ ] premake palettes
-    [ ] let user save palettes
-    [ ] show key instructions
-    [ ] import export palettes
-    [ ] history fucntionality (at least one step)
-    [ ] hide all ui
-    [ ] colophon
+    [x] show key instructions
+    [x] hide all ui
+    [x] import export palettes
+    [x] premake palettes
+    [x] let user save palettes
+    [x] history fucntionality (at least one step)
+    [ ] colophon 
+    [ ] tidy up design
 
     functionality for v2
     [ ] save files, load files
