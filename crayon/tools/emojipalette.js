@@ -18,7 +18,7 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
             <textarea v-if="isEdit" class="input" v-model="palettes[selected].content">
             </textarea>
             <span v-if="isEdit && palettes.length > 1" class="delete" @click="deletePalette"> delete </span>
-            <ul class="emojis" v-else>
+            <ul class="emojis" v-if="!isEdit">
                 <li 
                     class="emoji" 
                     v-for="e,i in characterArray" 
@@ -106,26 +106,20 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
         }
 
     `
-
-    const basePalettes = function(){
-        const pp = JSON.parse(window.localStorage.getItem("emojicrayon.emojipal.palettes"))
-        if(pp && pp.length) { return pp }
-        else {
-            return [
+    const pp = JSON.parse(window.localStorage.getItem("emojicrayon.emojipal.palettes"))
+    const basePalettes = pp && pp.length ? pp : [
                 {name: "emoji.palette",  content: str },
                 {name: "boats",          content: "🛶,⛵️,🚤,🛥,🛳,⛴,🚢" },
                 {name: "plants",         content: "🌲,🌳,🌵,🍀,🌿,🌱,🌴,🌹,🌷,🌼,🌻,🌸,🌺,🏵,🌾"},
                 {name: "cowabunga dude", content: "⛱,🏖,⛵️,🏄,🌊,💦,🌞,🐟,🦀,💀"},
                 {name: "hee hee",        content: "👁,👄,👁, " },
                 {name: "does it work with text", content: "it, works, well, enough"}
-            ]
-        }
-    }
+    ]
 
     const app = {
         // exposed to all expressions
         isEdit: false,
-        palettes: basePalettes(),
+        palettes: basePalettes,
         selected: 0,
         // getters
         get characterArray() {
@@ -156,9 +150,10 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
         deletePalette(){
             this.palettes = this.palettes.filter((p,i) => { return i != this.selected})
             this.selected = 0
-            this.isEdit = false
+            this.toggleMode()
         },
         save(){
+            console.log(JSON.stringify(this.palettes))
             window.localStorage.setItem("emojicrayon.emojipal.palettes", JSON.stringify(this.palettes))
         },
         mounted(){
