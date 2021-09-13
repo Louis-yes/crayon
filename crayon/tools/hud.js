@@ -3,16 +3,21 @@ export default function hud(ui) {
     const id = "hud"
     const template = `
         <div id="hud" class="crayon-ui">
-            <table>
+            <table class="info">
                 <tr><td></td><td>x</td><td>y</td></tr>
-                <tr><td>mode:</td><td>{{state.mode}}</td></tr>
-                <tr><td>zoom:</td><td>{{state.zoom}}</td></tr>
                 <tr v-if="state.mode == 'insert'"><td>mouse:</td><td>{{state.mouse.x}}</td><td>{{state.mouse.y}}</td></tr>
                 <tr v-if="state.mode == 'select'"><td>cursor:</td><td>{{state.cursor.x}}</td><td>{{state.cursor.y}}</td></tr>
                 <tr v-if="state.mode == 'select'"><td></td><td>{{state.cursor.w}}</td><td>{{state.cursor.h}}</td></tr>
                 <tr v-if="state.mode == 'navigate'"><td>offset:</td><td>{{state.offset.x}}</td><td>{{state.offset.y}}</td></tr>
-                <tr><td>h:</td><td colspan=2">toggle instructions</td></tr>
-                </table>
+                <tr><td>mode:</td><td>{{state.mode}}</td></tr>
+                <tr><td>zoom:</td><td>{{state.zoom}}</td></tr>   
+                <tr><td>k:</td><td colspan="2" style="text-align: right;">toggle instructions</td></tr>
+            </table>
+            <table v-if="state.showInstructions" class="keyboard-instructions">
+                <tr v-for="instruction,i in state.instructions" :key="i">
+                    <td>{{instruction.accelerator.replace('CmdOrCtrl', 'Ctrl')}}:</td><td>{{instruction.name}}</td>
+                </tr>
+            </table>    
         </div>
     `
     const css = `
@@ -25,8 +30,12 @@ export default function hud(ui) {
             font-family: sans-serif;
             font-size: 11px;
         }
-        #${id} td{
+        #${id} table { width: 100%}
+        #${id} .info td{
             width: 50px;
+        }
+        #${id} .keyboard-instructions td:last-child{
+            text-align: right;
         }
     `
 
@@ -35,7 +44,9 @@ export default function hud(ui) {
         cursor: {w:ui.cursor.w,h:ui.cursor.h,x:ui.cursor.x,y:ui.cursor.y},
         offset: {x: ui.state.offset.x, y: ui.state.offset.y},
         zoom: threeSF(ui.state.zoom),
-        mode: ui.mode
+        mode: ui.mode,
+        instructions: ui.kh.getAll(),
+        showInstructions: false
     })
     const app = { state }
 
@@ -49,6 +60,10 @@ export default function hud(ui) {
         let ww = Math.abs(ui.cursor.w + 1)
         state.cursor.h = hh
         state.cursor.w = ww
+    })
+
+    window.addEventListener("keydown", (e) => {
+        if(e.key == "k") state.showInstructions = !state.showInstructions
     })
     
     function xy(obj, nn){

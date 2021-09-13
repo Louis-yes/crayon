@@ -1,16 +1,23 @@
 import { createApp } from 'https://unpkg.com/petite-vue?module'
 
-export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,💒") {
+export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,🐖,💒") {
     const template = `
         <div :class="'emoji-palette crayon-ui ' + (isEdit ? 'edit' : '')">
             <div class="toolbar">
-            <div class="logo">emoji.palette</div>
-            <div class="modeToggle" @click="toggleMode">
-                    {{isEdit ? 'done' : 'edit'}}
+                <div  v-if="!isEdit" class="choose-palette">
+                    <select @change="selectPalette($event)">
+                        <option v-for="pp,i in palettes" :key="i" :value="i" :selected="i == selected">{{pp.name}}</option>
+                        <option value="add-new">+</option>
+                    </select>
+                </div>
+                <input v-else class="palette-name" type="text" v-model="palettes[selected].name">
+                <div class="modeToggle" @click="toggleMode">
+                        {{isEdit ? 'done' : 'edit'}}
                 </div>
             </div>
-            <textarea v-if="isEdit" class="input" v-model="characters">
+            <textarea v-if="isEdit" class="input" v-model="palettes[selected].content">
             </textarea>
+            <span v-if="isEdit && palettes.length > 1" class="delete" @click="deletePalette"> delete </span>
             <ul class="emojis" v-else>
                 <li 
                     class="emoji" 
@@ -25,7 +32,7 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
     const css = `
         .emoji-palette {
             position: fixed;
-            width: 196px;
+            width: 228px;
             left: 20px;
             top: 20px;
 
@@ -39,14 +46,15 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
             font-size: 16px;
             margin-bottom: 10px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 130px 1fr;
         }
-        .emoji-palette .toolbar .modeToggle { cursor: pointer; color: #4BD2FD; user-select: none; text-align:right}
+        .emoji-palette .toolbar .add-new { text-align: center; display: inline-block }
+        .emoji-palette .toolbar select { display: inline-block; max-width: 120px }
+
+        .emoji-palette .toolbar .modeToggle { cursor: pointer; display: inline-block; color: #4BD2FD; user-select: none; text-align:right}
             .emoji-palette .toolbar .modeToggle:hover { color: #92DF6E; }        
         .emoji-palette.edit .toolbar .modeToggle { color: #92DF6E;}
             .emoji-palette.edit .toolbar .modeToggle:hover { color: #4BD2FD; }
-
-        .emoji-palette .logo {text-align: left; }
 
         .emoji-palette .emojis {
             padding: 0;
@@ -77,28 +85,84 @@ export default function EmojiPalette(ui, id = "emopal", str = "🦀,💦,🐖,�
             min-height: 69px;
             width: 100%;
             background: #F6F6F6;
+            color: #4BD2FD;
             border: none;
             outline: none;
             resize: vertical;
             padding: 10px;
         }
+        .emoji-palette .delete { 
+            display: inline-block;
+            text-align: right;
+            font-family: sans-serif; 
+            font-size: 16px;
+            color: #aaa;
+            float: right;
+            padding: 11px 0 0px;
+            cursor: pointer;
+        }
+        .emoji-palette .delete:hover { 
+            color: #f00;
+        }
 
     `
+
+    const basePalettes = function(){
+        const pp = JSON.parse(window.localStorage.getItem("emojicrayon.emojipal.palettes"))
+        if(pp && pp.length) { return pp }
+        else {
+            return [
+                {name: "emoji.palette",  content: str },
+                {name: "boats",          content: "🛶,⛵️,🚤,🛥,🛳,⛴,🚢" },
+                {name: "plants",         content: "🌲,🌳,🌵,🍀,🌿,🌱,🌴,🌹,🌷,🌼,🌻,🌸,🌺,🏵,🌾"},
+                {name: "cowabunga dude", content: "⛱,🏖,⛵️,🏄,🌊,💦,🌞,🐟,🦀,💀"},
+                {name: "hee hee",        content: "👁,👄,👁, " },
+                {name: "does it work with text", content: "it, works, well, enough"}
+            ]
+        }
+    }
+
     const app = {
         // exposed to all expressions
-        characters: str,
         isEdit: false,
+        palettes: basePalettes(),
+        selected: 0,
         // getters
         get characterArray() {
-            return this.characters.split(",").map(c => c.replace(/\s/g, ""))
+            console.log(this.selected)
+            console.log(this.selected, ":" , this.palettes[this.selected].name)
+            return this.palettes[this.selected].content.split(",").map(c => c.replace(/\s/g, ""))
         },
         // methods
         toggleMode() {
             this.isEdit = !this.isEdit
+            this.save()
         },
         setEmoji(em) {
             console.log(em)
             ui.setEmoji(em)
+        },
+        selectPalette(e){
+            const val = e.target.value
+            console.log(val)
+            if(val == "add-new"){
+                this.palettes.push({name:"new", content: "🖍"})
+                this.selected = this.palettes.length - 1
+                this.isEdit = true
+            } else {
+                this.selected = parseInt(val)
+            }
+        },
+        deletePalette(){
+            this.palettes = this.palettes.filter((p,i) => { return i != this.selected})
+            this.selected = 0
+            this.isEdit = false
+        },
+        save(){
+            window.localStorage.setItem("emojicrayon.emojipal.palettes", JSON.stringify(this.palettes))
+        },
+        mounted(){
+            this.load()
         }
     }
 
