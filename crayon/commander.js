@@ -1,12 +1,7 @@
 export default function Commander(state) {
     const subscribers = []
     let history = []
-    let saveHistoryDebounce = debounce(()=>{ 
-        console.log(
-            "gg"
-        )
-        saveHistory()
-    }, 300, true)
+    let saveHistoryDebounce = debounce(()=>{ saveHistory() }, 300, true)
 
     function getBlock(x,y,xx,yy){ return state.getBlock(x,y,xx,yy) }
     function getEmojiAt(x,y){ return state.getEmojiAt(x,y) || null }
@@ -40,7 +35,6 @@ export default function Commander(state) {
             for(let i = 0; i < h ; i++) {
                 const l = [...lines[i]]
                 const w = l.length
-                console.log(l)
                 for(let u = 0; u < w; u++) {
                     if(l[u] != " "){
                         block.push({character: l[u], x:x+u, y:y+i})

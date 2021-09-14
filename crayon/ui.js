@@ -1,4 +1,5 @@
 import Keyboardhelper from "./tools/keyboardhelper.js"
+import debounce from "./tools/debounce.js"
 
 export default function UI(element, commander) {
     const cursor = {x: 0, y: 0, w: 1, h: 1, active: false, inverse: {x: false, y: false}}
@@ -46,14 +47,9 @@ export default function UI(element, commander) {
     init()
 
     function init() {
-        debug = setupDebug()    
-       
-        el = makeCanvas(element)
-        if( !element ) { document.body.appendChild(el) }
-       
-        ctx = el.getContext("2d")
-        ctx.setLineDash([2,6])
-       
+        debug = setupDebug()
+        setupCanvas(element)
+
         mouse.x = el.width/2
         mouse.y = el.height/2
        
@@ -61,14 +57,7 @@ export default function UI(element, commander) {
         state.offset.y = el.height/2
        
         loadState()
-       
-        emojiBuffer = document.createElement('canvas');
-        emojiBuffer.width = el.width;
-        emojiBuffer.height = el.height;
-       
-        ebx = emojiBuffer.getContext("2d")
-        ebx.font = ctx.font = state.zoom + "px sans-serif"
-       
+              
         style()
         events()
         draw()
@@ -167,86 +156,64 @@ export default function UI(element, commander) {
             drawEmojis()
         })
 
-        window.addEventListener("mouseover", (e) => {
-            mouse.active = e.target == el
-            draw()
-        })
-
+        window.addEventListener("mouseover", (e) => { mouse.active = e.target == el; draw() })
         el.onwheel = setZoom
-
-        el.addEventListener("mousedown", (e) => { 
-            mouse.mouseDown = true 
-            mouse.dragstart.x = e.offsetX
-            mouse.dragstart.y = e.offsetY
-        })
-        el.addEventListener("mouseenter",(e) => {
-            setMouseActive(true)
-        })
-        el.addEventListener("mouseleave", (e) => {
-            setMouseActive(false)        
-        })
+        el.addEventListener("mouseenter",(e) => { setMouseActive(true) })
+        el.addEventListener("mouseleave", (e) => { setMouseActive(false) })
         el.addEventListener("mouseup", (e) =>  { mouse.mouseDown = false })
-        el.addEventListener("mousemove", (e) => { 
-            setMouseActive(true)
-            mouse.x = e.offsetX
-            mouse.y = e.offsetY
-            emit(changeEvent.mouse)
-            draw()
-        })
+        el.addEventListener("mousedown", (e) => { mouseDown(e) })
+        el.addEventListener("mousemove", (e) => { mouseMove(e) })
+        el.addEventListener("touchmove", function(e){ /* touch move */ })
+        window.addEventListener('resize', (e) => {resize(e)})
+    }
 
-        el.addEventListener("touchstart", (e) =>  { mouse.activeTouch = true })
-        el.addEventListener("touchend", (e) =>  { mouse.activeTouch = false })
-        el.addEventListener("mousedown", (e) => {
-            switch (mode){
-                case modes.insert:
-                    if(cursor.active) {
-                        toggleCursorActive(false)
-                        draw()
-                        return
-                    }
-                    let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)+1)
-                    if(gec && gec.character == state.currentEmoji){
-                        removeEmojiFromEvent(e)
-                        return
-                    }
-                    addEmojiFromEvent(e)
-                    break;
-                case modes.navigate:
-                    setOldOffset(state.offset.x, state.offset.y)
-                default: ;
-            }
-        })
-        el.addEventListener("mousemove", (e) => {
-            setMouseActive(true)
-            switch (mode){
-                case modes.insert: 
-                    if ( mouse.mouseDown ) { addEmojiFromEvent(e) }
-                    break;
-                case modes.navigate:
-                    if( mouse.mouseDown ) {
-                        pan(
-                            mouse.x - mouse.dragstart.x, 
-                            mouse.y - mouse.dragstart.y
-                        )
-                    }
-                    break;
-                case modes.select:
-                    setCursorSizeFromEvent(e)
-                default:
+    function mouseMove(e){
+        setMouseActive(true)
+        mouse.x = e.offsetX
+        mouse.y = e.offsetY
+        emit(changeEvent.mouse)
+        switch (mode){
+            case modes.insert: 
+                if ( mouse.mouseDown ) { addEmojiFromEvent(e) }
+                break;
+            case modes.navigate:
+                if( mouse.mouseDown ) {
+                    pan(
+                        mouse.x - mouse.dragstart.x, 
+                        mouse.y - mouse.dragstart.y
+                    )
+                    drawEmojis()
                 }
-        })
-        el.addEventListener("touchmove", function(e){
-            switch (mode){
-                case modes.insert: 
-                    if(window.cursor.activeTouch){
-                        e.offsetX = e.touches[0].pageX - e.touches[0].target.state.offsetLeft,     
-                        e.offsetY = e.touches[0].pageY - e.touches[0].target.state.offsetTop
-                        addEmojiFromEvent(e)
-                    }
-                    break;
-                default:
+                break;
+            case modes.select:
+                setCursorSizeFromEvent(e)
+            default:
+        }
+        drawEmojis() 
+    }
+
+    function mouseDown(e) {
+        mouse.mouseDown = true 
+        mouse.dragstart.x = e.offsetX
+        mouse.dragstart.y = e.offsetY
+        switch (mode){
+            case modes.insert:
+                if(cursor.active) {
+                    toggleCursorActive(false)
+                    draw()
+                    return
                 }
-        })
+                let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)+1)
+                if(gec && gec.character == state.currentEmoji){
+                    removeEmojiFromEvent(e)
+                    return
+                }
+                addEmojiFromEvent(e)
+                break;
+            case modes.navigate:
+                setOldOffset(state.offset.x, state.offset.y)
+            default: ;
+        }
     }
 
     function currentTransform(x,y){
@@ -345,6 +312,11 @@ export default function UI(element, commander) {
 
     function setMouseActive(b){ mouse.active = b }
 
+    let resize = debounce((e) => {
+        setupCanvas(el)
+        drawEmojis()
+    }, 800)
+
     function addEmojiFromEvent(e) {
         commander.add(
             state.currentEmoji,
@@ -420,6 +392,22 @@ export default function UI(element, commander) {
         `
         document.body.appendChild(debug)
         return debug;
+    }
+
+    function setupCanvas(cc){
+        if( !element ) { document.body.appendChild(el) }
+
+        el = makeCanvas(cc)
+       
+        ctx = el.getContext("2d")
+        ctx.setLineDash([2,6])
+    
+        emojiBuffer = document.createElement('canvas');
+        emojiBuffer.width = el.width;
+        emojiBuffer.height = el.height;
+       
+        ebx = emojiBuffer.getContext("2d")
+        ebx.font = ctx.font = state.zoom + "px sans-serif"
     }
 
     function makeCanvas(element){

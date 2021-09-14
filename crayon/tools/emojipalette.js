@@ -123,8 +123,6 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
         selected: 0,
         // getters
         get characterArray() {
-            console.log(this.selected)
-            console.log(this.selected, ":" , this.palettes[this.selected].name)
             return this.palettes[this.selected].content.split(",").map(c => c.replace(/\s/g, ""))
         },
         // methods
@@ -132,13 +130,9 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
             this.isEdit = !this.isEdit
             this.save()
         },
-        setEmoji(em) {
-            console.log(em)
-            ui.setEmoji(em)
-        },
+        setEmoji(em) { ui.setEmoji(em) },
         selectPalette(e){
             const val = e.target.value
-            console.log(val)
             if(val == "add-new"){
                 this.palettes.push({name:"new", content: "🖍"})
                 this.selected = this.palettes.length - 1
@@ -152,13 +146,8 @@ export default function EmojiPalette(ui, id = "emopal", str = "🖍,🦀,💦,�
             this.selected = 0
             this.toggleMode()
         },
-        save(){
-            console.log(JSON.stringify(this.palettes))
-            window.localStorage.setItem("emojicrayon.emojipal.palettes", JSON.stringify(this.palettes))
-        },
-        mounted(){
-            this.load()
-        }
+        save(){ window.localStorage.setItem("emojicrayon.emojipal.palettes", JSON.stringify(this.palettes)) },
+        mounted(){ this.load() }
     }
 
     function install(){
