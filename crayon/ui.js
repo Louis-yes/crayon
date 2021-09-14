@@ -133,7 +133,7 @@ export default function UI(element, commander) {
         kh.set("Edit", "Undo", "CmdOrCtrl+Z", () => { if(mouse.active) { commander.undo() }})
         kh.set("File", "Load", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
         kh.set("Edit", "Select", "Shift", (e) => {
-            if(mouse.active) {
+            if(mouse.active && mode != modes.select) {
                 setMode(modes.select)
                 toggleCursorActive(true)
                 setCursorSize(1,1)
