@@ -245,7 +245,7 @@ export default function UI(element, commander) {
 
     function copyAsHTML(e){
         e.preventDefault()
-        const string = `<p>\n${commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h).split("\n").join("<br>\n")}</p>`
+        const string = `<p class="crayon">\n${commander.getBlockAsString(cursor.x,cursor.y, cursor.w, cursor.h).split("\n").join("<br>\n")}</p>`
         writeToClipboard(string)
     }
 
