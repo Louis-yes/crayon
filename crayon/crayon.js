@@ -1,16 +1,18 @@
 /*
     TODO:
-    [x] measurements / cursor position
-    [x] selection size readout
-    [x] scroll to zoom
-    [x] show key instructions
-    [x] hide all ui
-    [x] import export palettes
-    [x] premake palettes
-    [x] let user save palettes
-    [x] history fucntionality (at least one step)
-    [ ] colophon 
-    [ ] tidy up design
+    - [x]  measurements / cursor position
+    - [x]  selection size readout
+    - [x]  scroll to zoom
+    - [x]  premake palettes
+    - [x]  let user save palettes
+    - [x]  show key instructions
+    - [x]  import export palettes
+    - [x]  history fucntionality (at least one step)
+    - [x]  hide all ui
+    - [x]  fix windows bug
+    - [x]  add resize
+    - [x]  colophon
+    - [ ]  once over for design
 
     functionality for v2
     [ ] save files, load files
