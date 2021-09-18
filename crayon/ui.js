@@ -48,7 +48,6 @@ export default function UI(element, commander) {
 
     function init() {
         debug = setupDebug()
-        setupCanvas(element)
 
         mouse.x = el.width/2
         mouse.y = el.height/2
@@ -57,10 +56,10 @@ export default function UI(element, commander) {
         state.offset.y = el.height/2
        
         loadState()
-              
+        setupCanvas(element)
         style()
         events()
-        draw()
+        drawEmojis()
         commander.load()
     }
 
@@ -234,7 +233,9 @@ export default function UI(element, commander) {
     }
 
     function setState(s) {
-        state = s
+        state.zoom = s.zoom
+        state.offset = s.offset
+        state.currentEmoji = s.currentEmoji
     }
 
     function copy(e){
