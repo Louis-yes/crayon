@@ -49,14 +49,15 @@ export default function UI(element, commander) {
     function init() {
         debug = setupDebug()
 
+        loadState()
+        setupCanvas(element)
+
         mouse.x = el.width/2
         mouse.y = el.height/2
        
         state.offset.x = el.width/2
         state.offset.y = el.height/2
-       
-        loadState()
-        setupCanvas(element)
+
         style()
         events()
         drawEmojis()
