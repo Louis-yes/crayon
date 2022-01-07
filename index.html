@@ -7,11 +7,18 @@
     <title>crayon</title>
     <link rel="stylesheet" href="tachyons.min.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖍</text></svg>">
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+    </style>
 </head>
 <body>
     <canvas></canvas>
     <script type="module" src="crayon/crayon.js"></script>
-    <nav><a href="./about/" class="absolute bottom-1 right-1 sans-serif f3 hcrayon-ui">about</a></nav>    
+    <nav class="absolute top-1 right-1 sans-serif f3 crayon-ui">
+        <a class="db" href="./about/">?</a>
+    </nav>    
 </body>
 
 </html>

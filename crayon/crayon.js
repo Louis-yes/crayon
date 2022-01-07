@@ -1,42 +1,39 @@
 /*
     TODO:
-    - [x]  measurements / cursor position
-    - [x]  selection size readout
-    - [x]  scroll to zoom
-    - [x]  premake palettes
-    - [x]  let user save palettes
-    - [x]  show key instructions
-    - [x]  import export palettes
-    - [x]  history fucntionality (at least one step)
-    - [x]  hide all ui
-    - [x]  fix windows bug
-    - [x]  add resize
-    - [x]  colophon
-    - [ ]  once over for design
+    [ ] add index.html metadata
+    [ ] messaging for all functions
+    [ ] make messages look better?
+    [ ] add file stuff to mobile (save, load, undo)
+    [ ] addhide button to mobile
+    [ ] design review
 
-    functionality for v2
+    functionality for v3
     [ ] save files, load files
-    [ ] overlay
-    [ ] zoom to mouse pos
+    [ ] image overlay
+    [ ] zoom to mouse pos?
+    [ ] plugins???
     [ ] optimise rendering
     [ ] line drawing
-    [ ] Implement touch drag
-    [ ] Implement touch pan
-    [ ] design/implement touch ui
 */
 
 import State from "./state.js"
 import Commander from "./commander.js"
 import UI from "./ui.js"
-import EmojiPalette from "./tools/emojipalette.js"
-import HUD from "./tools/hud.js"
+
+import messager from "./tools/messager.js"
+import hide from "./tools/hide.js"
+import toolpalette from "./tools/palette_tools.js"
+import EmojiPalette from "./tools/palette_emoji.js"
 
 const state = new State()
 const commander = new Commander(state)
 const ui = new UI(document.querySelector('canvas'), commander)
 // const emopic = new EmojiPicker(ui, emojis) 
+// const hud = new HUD(ui)
+const hh = new hide(ui)
+const tp = new toolpalette(ui)
 const emopal = new EmojiPalette(ui)
-const hud = new HUD(ui)
+const mmm = new messager(ui)
 // debugging
 window.debug = {}
 window.debug.ui = ui

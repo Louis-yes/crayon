@@ -153,6 +153,7 @@ export default function Commander(state) {
 
     return {
         db: getDB,
+        state: state,
         on: on,
         remove: remove,
         removeBlock: removeBlock,

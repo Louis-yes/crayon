@@ -11,7 +11,7 @@
 
 export default function Keyboardhelper(cl){
     const all = {}
-    // {cat, name, instructions, keys, keydown, keyup}
+    const isTouch = 'ontouchstart' in window || navigator.msMaxTouchPoints ? true : false
 
     function install (host = window) {
         host.addEventListener('keydown', onKeyDown, false)
@@ -36,23 +36,36 @@ export default function Keyboardhelper(cl){
 
     function onKeyDown (e) {
         const target = get(convert(e))
-        if (!target || !target.downfn) { return false }
+        if (!target || !target.downfn || isTouch ) { return false }
         target.downfn(e)
     }
     
     function onKeyUp (e) {
         const target = get(convert(e))
-        if (!target || !target.downfn) { return false }
+        if (!target || !target.downfn || isTouch) { return false }
         target.upfn()
         e.preventDefault()
     }
 
     function getAll () { return all }
+    function getByName (name) {
+        let acc = Object.keys(all).find(kk => all[kk].name == name)
+        if(!acc) return
+        return all[acc]
+    }
+
+    function getByCat (cat){
+        let acc = Object.keys(all).filter(kk => all[kk].cat == cat)
+        if(!acc) return
+        return acc.map(aa => all[aa])
+    }
 
     install(cl)
     return {
         set: set,
-        getAll: getAll
+        getAll: getAll,
+        getByName: getByName,
+        getByCat: getByCat
     }
     //maybe a mouse one too?
 }

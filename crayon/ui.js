@@ -2,21 +2,30 @@ import Keyboardhelper from "./tools/keyboardhelper.js"
 import debounce from "./tools/debounce.js"
 
 export default function UI(element, commander) {
-    const cursor = {x: 0, y: 0, w: 1, h: 1, active: false, inverse: {x: false, y: false}}
-    const modes = { insert: "insert", select: "select", navigate: "navigate" }
+    const cursor = {x: 0, y: 0, w: 0, h: 0, active: false, inverse: {x: false, y: false}}
+    const modes = {
+        draw: "draw",
+        erase: "erase",
+        select: "select",
+        navigate: "navigate", 
+        zoom: "zoom",
+        pan: "pan"
+    }
     const kh = Keyboardhelper(window)
     const subscribers = []
     const mouse = {
         active: true,
         mouseDown: false,
         activeTouch: false,
+        pinch: 0,
+        pinchStart: 0,
         dragstart: { x: 0, y: 0 },
         x: 0,
         y: 0,
     }
     const grid = {
-        x: (n) => Math.floor((n - offsetModulo(state.offset.x))/ state.zoom - Math.floor(state.offset.x/ state.zoom)),
-        y: (n) => Math.floor((n - offsetModulo(state.offset.y))/ state.zoom - Math.floor(state.offset.y/ state.zoom)),
+        x: (n) => Math.floor(((n) - offsetModulo(state.offset.x))/ state.zoom - Math.floor(state.offset.x/ state.zoom)),
+        y: (n) => Math.floor(((n) - offsetModulo(state.offset.y))/ state.zoom - Math.floor(state.offset.y/ state.zoom)),
     }
     const changeEvent = {
         copy:   "copy"  ,
@@ -34,10 +43,11 @@ export default function UI(element, commander) {
             old: { x:0, y: 0 },
         },
         currentEmoji: "🖍",
+        isTouch: 'ontouchstart' in window || navigator.msMaxTouchPoints ? true : false
     }
 
     let ctx = {}
-    let mode = modes.insert // default
+    let mode = modes.draw // default
     let debug = {}
     let el = {}
     let emojiBuffer = {}
@@ -86,85 +96,160 @@ export default function UI(element, commander) {
                 ep.y
             )
         })
+        commander.save()
         draw()
     }
 
     function draw() {
-        march += 0.8
+        let sd = commander.state.dimensions()
         let c = ctx
+        march += 0.8
+
         c.lineDashOffset = march
+        ctx.setLineDash([2,6])
         c.clearRect(0, 0, el.width, el.height)
-        c.drawImage(emojiBuffer, 0, 0);
-    
+        c.drawImage(emojiBuffer, 0,0);
+
+
         // draw current mousepos
-        if(mouse.active & mode == modes.insert){
+        if(mouse.active && !state.isTouch && !(mouse.mouseDown && cursor.active)){
             ctx.strokeRect(
                 grid.x(mouse.x) *  state.zoom + state.offset.x, 
                 grid.y(mouse.y) *  state.zoom + state.offset.y, 
                  state.zoom,  state.zoom
             )
-            ctx.fillText(
-                state.currentEmoji, 
-                grid.x(mouse.x) *  state.zoom + state.offset.x, 
-                (grid.y(mouse.y)+1) *  state.zoom + state.offset.y, 
-            )         
+            if(mode == modes.draw){
+                ctx.fillText(
+                    state.currentEmoji, 
+                    grid.x(mouse.x) *  state.zoom + state.offset.x, 
+                    (grid.y(mouse.y)+1) *  state.zoom + state.offset.y, 
+                )    
+            }
         }
 
-        if(mode == modes.select || cursor.active){
+        if(cursor.active){
             ctx.strokeRect(
                 cursor.x *  state.zoom + state.offset.x, 
                 cursor.y *  state.zoom + state.offset.y, 
-                 state.zoom * cursor.w +  state.zoom,  state.zoom * cursor.h +  state.zoom
+                state.zoom * cursor.w +  state.zoom,  state.zoom * cursor.h +  state.zoom
             )
         }
     }
 
     function events() {
-        kh.set("Edit", "Copy", "CmdOrCtrl+C", (e) => { if(mouse.active){ copy(e) } })
-        kh.set("Edit", "Paste", "CmdOrCtrl+V", (e) => {
-            if(mouse.active) {
-                e.preventDefault()
-                navigator.clipboard.readText().then(clipText => {
-                    commander.insertBlockAsString(grid.x(mouse.x), grid.y(mouse.y), clipText)
-                })
-            }
-        })
-        kh.set("File", "Save", "CmdOrCtrl+S", (e) => { if(mouse.active) e.preventDefault(); commander.save()})
-        kh.set("Edit", "Undo", "CmdOrCtrl+Z", () => { if(mouse.active) { commander.undo() }})
-        kh.set("File", "Load", "CmdOrCtrl+L", () => { if(mouse.active) commander.load(); draw()})
-        kh.set("Edit", "Select", "Shift", (e) => {
-            if(mouse.active && mode != modes.select) {
+        kh.set("Draw", "Draw", "D", () => {if(readyToRoll()){setMode(modes.draw)}})
+        kh.set("Draw", "Erase", "E", ()=> { if(readyToRoll()){setMode(modes.erase)}})
+        
+        kh.set("Select", "Select", "Shift", (e) => {
+            if(readyToRoll() && mode != modes.select) {
                 setMode(modes.select)
-                toggleCursorActive(true)
-                setCursorSize(1,1)
-                setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
-                emit(changeEvent.cursor)
             }
-        }, (e) => { setMode(modes.insert) } )
-        kh.set("Edit", "Clear", "Backspace", () => { if(mouse.active && cursor.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Navigate", "Pan", "Space", () => { if(mouse.active) setMode(modes.navigate)}, () => { if(mouse.active) setMode(modes.insert) })
-        kh.set("Edit", "Fill", "F", () => { if(mouse.active && cursor.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
-        kh.set("Edit", "Copy as HTML", "C", (e) => { if(mouse.active){ copyAsHTML(e) } })
-        kh.set("Navigate", "Hide Tools", "H", () => { if(mouse.active) { document.body.classList.toggle("crayon-hide")}})
+        }, (e) => { setMode(modes.draw) } )
+        kh.set("Select", "Clear", "Backspace", () => { if(readyToRoll() && cursor.active) removeBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
+        kh.set("Select", "Fill", "F", () => { if(readyToRoll() && cursor.active) fillBlock(cursor.x,cursor.y, cursor.w, cursor.h)})
 
-        commander.on('emoji-added', (e) => drawEmojis())
-        commander.on('emoji-removed', (e) => drawEmojis())
-        commander.on('load', () => drawEmojis())
-        commander.on('block-removed', (e) => drawEmojis())
-        commander.on('block-filled', (e) => drawEmojis())
-        commander.on('undo', (e) => {
-            drawEmojis()
+        // kh.set("Select", "Copy as HTML", "C", (e) => { if(readyToRoll()){ copyAsHTML(e) }})
+        kh.set("Select", "Paste", "CmdOrCtrl+V", (e) => { if(readyToRoll()){ paste(e) }})
+        kh.set("Select", "Copy", "CmdOrCtrl+C", (e) => { if(readyToRoll()){ copy(e) }})
+
+        // we save automatically now
+        // kh.set("File", "Save", "CmdOrCtrl+S", (e) => { if(readyToRoll()){ 
+        //     e.preventDefault(); 
+        //     commander.save()
+        // }})
+        // kh.set("File", "Load", "CmdOrCtrl+L", (e) => { 
+        //     if(readyToRoll()){
+        //         e.preventDefault()            
+        //         commander.load()
+        //         draw()
+        //     }
+        // })
+        kh.set("Edit", "Undo", "CmdOrCtrl+Z", () => { if(readyToRoll()) { commander.undo() }})
+     
+        kh.set("Navigate", "Pan", "Space", () => { if(readyToRoll() && mode != modes.pan) setMode(modes.pan)}, () => { if(readyToRoll()) setMode(modes.draw) })        
+        kh.set("Navigate", "Zoom", "Z", () => { if(readyToRoll() && mode != modes.zoom) setMode(modes.zoom)}, () => { if(readyToRoll()) setMode(modes.draw) })    
+        
+        kh.set("Navigate", "Hide", "H", () => { 
+            if(readyToRoll()) { 
+                hide()
+            }
         })
 
-        window.addEventListener("mouseover", (e) => { mouse.active = e.target == el; draw() })
-        el.onwheel = setZoom
+        commander.on('emoji-added',     () => drawEmojis())
+        commander.on('emoji-removed',   () => drawEmojis())
+        commander.on('load',            () => drawEmojis())
+        commander.on('block-removed',   () => drawEmojis())
+        commander.on('block-filled',    () => drawEmojis())
+        commander.on('undo',            () => drawEmojis())
+
+        window.addEventListener("mouseover", (e) => { mouse.active && e.target == el; draw() })
+        el.onwheel = (e) => {
+            e.preventDefault()
+            setZoom(e.deltaY * -0.01)
+        }
         el.addEventListener("mouseenter",(e) => { setMouseActive(true) })
         el.addEventListener("mouseleave", (e) => { setMouseActive(false) })
         el.addEventListener("mouseup", (e) =>  { mouse.mouseDown = false })
         el.addEventListener("mousedown", (e) => { mouseDown(e) })
         el.addEventListener("mousemove", (e) => { mouseMove(e) })
-        el.addEventListener("touchmove", function(e){ /* touch move */ })
+
+        el.addEventListener("touchstart", touchStart, false);
+        // el.addEventListener("touchend", handleEnd, false);
+        el.addEventListener("touchmove", touchMove, false);
+        // el.addEventListener("touchcancel", handleCancel, false);
+
         window.addEventListener('resize', (e) => {resize(e)})
+        
+        function readyToRoll(){
+            return (mouse.active || state.isTouch)
+        }
+    }
+
+    function touchStart(e){
+        e.preventDefault()
+        if(e.touches.length == 1){
+            let touch = e.touches[0]
+            let event = {offsetX: touch.clientX, offsetY: touch.clientY}
+            mouse.x = touch.clientX
+            mouse.y = touch.clientY
+            mouse.activeTouch = true;
+            pointerDownHandler(event, true)
+        } else {
+            mouse.pinch = mouse.pinchStart = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) 
+            // start pan, start zoom
+            // todo - make this offset setting a function? there's probably a more clever way to do this
+            setOldOffset(state.offset.x, state.offset.y)
+
+            mouse.dragstart.x = (e.touches[0].clientX + e.touches[1].clientX) / 2,
+            mouse.dragstart.y = (e.touches[0].clientY + e.touches[1].clientY) / 2
+        }
+
+    }
+
+    function touchMove(e){
+        e.preventDefault()
+        if (e.touches.length == 1) {
+            let touch = e.touches[0]
+            let event = {offsetX: touch.clientX, offsetY: touch.clientY}
+            mouse.x = touch.clientX
+            mouse.y = touch.clientY
+            moveHandler(event, true)
+        } else {    
+            let x = (e.touches[0].clientX + e.touches[1].clientX) / 2
+            let y = (e.touches[0].clientY + e.touches[1].clientY) / 2
+            let newPinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY)
+            // document.querySelector("h1").innerHTML = newPinch - mouse.pinch
+            if(mouse.pinch > 0 && mouse.pinchStart > 160 ){
+                setZoom((newPinch - mouse.pinch) * 0.2)
+            } else {
+                pan(
+                    x - mouse.dragstart.x,
+                    y - mouse.dragstart.y
+                )
+            }
+            mouse.pinch = newPinch
+            drawEmojis()
+        }
     }
 
     function mouseMove(e){
@@ -172,35 +257,22 @@ export default function UI(element, commander) {
         mouse.x = e.offsetX
         mouse.y = e.offsetY
         emit(changeEvent.mouse)
-        switch (mode){
-            case modes.insert: 
-                if ( mouse.mouseDown ) { addEmojiFromEvent(e) }
-                break;
-            case modes.navigate:
-                if( mouse.mouseDown ) {
-                    pan(
-                        mouse.x - mouse.dragstart.x, 
-                        mouse.y - mouse.dragstart.y
-                    )
-                    drawEmojis()
-                }
-                break;
-            case modes.select:
-                setCursorSizeFromEvent(e)
-            default:
-        }
-        drawEmojis() 
+        moveHandler(e, false)
     }
 
     function mouseDown(e) {
         mouse.mouseDown = true 
+        pointerDownHandler(e)
+    }
+
+    function pointerDownHandler(e, touch){
         mouse.dragstart.x = e.offsetX
         mouse.dragstart.y = e.offsetY
         switch (mode){
-            case modes.insert:
+            case modes.draw:
+                showMessage('draw')
                 if(cursor.active) {
                     toggleCursorActive(false)
-                    draw()
                     return
                 }
                 let gec = commander.getEmoji(grid.x(e.offsetX), grid.y(e.offsetY)+1)
@@ -210,13 +282,72 @@ export default function UI(element, commander) {
                 }
                 addEmojiFromEvent(e)
                 break;
-            case modes.navigate:
+            case modes.erase:
+                if(cursor.active) {
+                    toggleCursorActive(false)
+                    return
+                }
+                removeEmojiFromEvent(e)
+                showMessage('erase')
+                break;
+            case modes.pan:
                 setOldOffset(state.offset.x, state.offset.y)
+                break;
+            case modes.select:
+                toggleCursorActive(true)
+                setCursorSize(0,0)
+                if(touch) {
+                    setCursorPos(grid.x(e.offsetX), grid.y(e.offsetY))
+                } else {
+                    setCursorPos(grid.x(mouse.x), grid.y(mouse.y))
+                }
+                emit(changeEvent.cursor)
+                break;
             default: ;
         }
+        drawEmojis();
     }
 
-    function currentTransform(x,y){
+    function moveHandler(e, touch){
+        switch (mode){
+            case modes.draw: 
+                if ( mouse.mouseDown || touch ) { addEmojiFromEvent(e) }
+                break;
+            case modes.erase:
+                if ( mouse.mouseDown || touch ) { removeEmojiFromEvent(e) }
+                break;
+            case modes.pan:
+                if( mouse.mouseDown ) {
+                    pan(
+                        mouse.x - mouse.dragstart.x, 
+                        mouse.y - mouse.dragstart.y
+                    )
+                } else if(touch){
+                    pan(
+                        e.offsetX - mouse.dragstart.x, 
+                        e.offsetY - mouse.dragstart.y
+                    ) 
+                }
+                break;
+            case modes.zoom:
+                if(el.width > el.height) {
+                    setZoom(-(e.offsetX - mouse.dragstart.x) * 0.1)
+                } else {
+                    setZoom(-(e.offsetY - mouse.dragstart.y) * 0.1)
+                }
+                mouse.dragstart.y = e.offsetY
+                mouse.dragstart.x = e.offsetX
+                break;
+            case modes.select:
+                if(mouse.mouseDown || touch ){
+                    setCursorSizeFromEvent(e)
+                }
+            default:
+        }
+        drawEmojis()
+    }
+
+    function currentTransform(x, y){
         return {
             x: x * state.zoom + state.offset.x,
             y: y * state.zoom + state.offset.y 
@@ -258,11 +389,59 @@ export default function UI(element, commander) {
                     /* write to the clipboard now */
                     navigator.clipboard.writeText(txt).then(function() {
                         emit(changeEvent.copy, txt)
+                        showMessage("copied")
                     }, function() {
                         console.warn("couldn't copy selection") 
                     })
                 }
             });    
+        } else {
+            var textArea = document.createElement("textarea");
+            textArea.value = txt;
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                var successful = document.execCommand('copy');
+                showMessage("copied")                
+            } catch (err) {
+                showMessage("Unable to copy right now")
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+    }
+
+    function paste(e){
+        e.preventDefault()
+        if(navigator.clipboard){
+            navigator.clipboard.readText().then(clipText => { 
+                commander.insertBlockAsString(grid.x(mouse.x), grid.y(mouse.y)+1, clipText) 
+                showMessage("pasted")
+            })
+        } else {
+            var textArea = document.createElement("textarea")
+            // Avoid scrolling to bottom
+            textArea.style.top = "0"
+            textArea.style.left = "0"
+            textArea.style.position = "fixed"
+            textArea.readOnly = "true"
+            document.body.appendChild(textArea)
+            textArea.focus()
+            var successful = document.execCommand("paste")
+            if(successful){
+                commander.insertBlockAsString(grid.x(mouse.x), grid.y(mouse.y)+1, textArea.textContent) 
+                document.body.removeChild(textArea);
+                showMessage("pasted")    
+            } else {
+                showMessage("sorry, paste doesn't work right now")
+            }
         }
     }
 
@@ -334,20 +513,36 @@ export default function UI(element, commander) {
         )
     }
 
-    function removeBlock(){ commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h) }
-    function fillBlock(){ commander.fill(state.currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h) }
+    function removeBlock(){ commander.removeBlock(cursor.x, cursor.y, cursor.w, cursor.h); showMessage("cleared rect") }
+    function fillBlock(){ commander.fill(state.currentEmoji, cursor.x, cursor.y, cursor.w, cursor.h); showMessage("filled rect with " + state.currentEmoji)}
 
-    function setZoom(e){ 
-        e.preventDefault()
-        state.zoom += e.deltaY * -0.01
+    function setZoom(d){ 
+        let offs = [state.offset.x, state.offset.y]
+        let oldzoom = state.zoom
+        if(state.zoom + d < 10){
+            return;
+        }
+        state.zoom += d
+
+        state.offset.x = offs[0] + (1 - (state.zoom / oldzoom)) * (el.width/2 - offs[0])
+        state.offset.y = offs[1] + (1 - (state.zoom / oldzoom)) * (el.height/2 - offs[1])
+
         setFont( state.zoom )
         drawEmojis()
         saveState()
+        showMessage(`zoom: ${Math.floor(state.zoom*100) / 100}`)
         emit(changeEvent.zoom)
     }
 
-    function setFont(z) { ebx.font = ctx.font = z + "px sans-serif" }
-    function setCurrentEmoji(emo){ state.currentEmoji = emo; saveState() }
+    function setFont(z) { 
+        ebx.font = z + "px sans-serif"
+        ctx.font = z + "px sans-serif" 
+    }
+    function setCurrentEmoji(emo){ 
+        state.currentEmoji = emo 
+        setMode(modes.draw)
+        saveState() 
+    }
     function setElCursor(m){
         let c = "none"
         if(m == modes.navigate){ c = "grab" }
@@ -355,17 +550,27 @@ export default function UI(element, commander) {
         el.style.cursor = c
     }
 
-    function setMode(m) { 
+    function setMode(m) {
         setElCursor(m)
-        emit(changeEvent.mode, m)
+        draw()
         mode = m
+        showMessage(m.toLowerCase())
+        emit(changeEvent.mode, m)
     }
 
     function pan(x,y) {
         xy(state.offset, {x: state.offset.old.x + x, y: state.offset.old.y + y})
-        drawEmojis()
         saveState()
+        showMessage(`x:${Math.floor(state.offset.x)} y: ${Math.floor(state.offset.y)}`)
         emit(changeEvent.pan)
+    }
+
+    function hide(){
+        if(state.isTouch){
+            document.body.classList.toggle("crayon-hide")
+        } else {
+            document.body.classList.toggle("crayon-hide")
+        }
     }
 
     function setOldOffset(x,y) { xy(state.offset.old, {x, y}) }
@@ -407,9 +612,12 @@ export default function UI(element, commander) {
         emojiBuffer = document.createElement('canvas');
         emojiBuffer.width = el.width;
         emojiBuffer.height = el.height;
+
+        // document.body.appendChild(emojiBuffer)
        
         ebx = emojiBuffer.getContext("2d")
-        ebx.font = ctx.font = state.zoom + "px sans-serif"
+        ebx.font = state.zoom + "px sans-serif"
+        ctx.font = state.zoom + "px sans-serif"
     }
 
     function makeCanvas(element){
@@ -421,6 +629,10 @@ export default function UI(element, commander) {
         el.width = window.innerWidth
         el.height = window.innerHeight
         return el
+    }
+
+    function showMessage(str){
+        emit("message", str)
     }
 
     function emit(ee, data){ subscribers[ee] ? subscribers[ee].forEach(cb => cb(data)) : "" }
@@ -436,6 +648,7 @@ export default function UI(element, commander) {
         mouse: mouse,
         cursor: cursor,
         mode: mode,
+        modes: modes,
         setMode: setMode,
         pan: pan,
         draw: draw,

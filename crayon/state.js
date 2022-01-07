@@ -39,19 +39,24 @@ export default function State(){
     // transform to db to 0
 
     function getDimensions(){
-        let west = getDB()[0].x
-        let east = getDB()[0].x
-        let north = getDB()[0].y
-        let south = getDB()[0].y
+        if(getDB().length){
+            let west = getDB()[0].x
+            let east = getDB()[0].x
+            let north = getDB()[0].y
+            let south = getDB()[0].y
+    
+            getDB().forEach(c => {
+                if(c.x < west) west = c.x
+                if(c.x > east) east = c.x            
+                if(c.y < north) north = c.y
+                if(c.y > south) south = c.y 
+            })
+            return {w:west,e:east,n:north,s:south}
+        } else {
+            return {w: 0, e: 0, n: 0, s:0}
+        }
 
-        getDB().forEach(c => {
-            if(c.x < west) west = c.x
-            if(c.x > east) east = c.x            
-            if(c.y < north) north = c.y
-            if(c.y > south) south = c.y 
-        })
 
-        return {w:west,e:east,n:north,s:south}
     }
 
     return {
