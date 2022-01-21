@@ -1,4 +1,3 @@
-<main class="pa3 f3 pa5-ns f2-ns sans-serif w-100 mw8 justify wrap lh-copy ws-normal">
             <p>
                 Crayon 🖍 is made by <a href="http://yesthisislouis.com">Louis</a>
             </p>
@@ -31,5 +30,3 @@
             <p><a href="https://github.com/vuejs/petite-vue">Petite Vue</a> which I used to do the ui (palettes, hud), realising that sometimes it's better not to try to do everything</p>
             <p>If you find any bugs that you care about, please open an issue on <a href="https://github.com/Louis-yes/crayon/issues">github</a> 🐞🐞🐞🐞.</p>
             <p><a href="..">back</a></p>
-
-        </main>
